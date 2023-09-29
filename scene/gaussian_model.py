@@ -212,39 +212,125 @@ class GaussianModel:
         optimizable_tensors = self.replace_tensor_to_optimizer(opacities_new, "opacity")
         self._opacity = optimizable_tensors["opacity"]
 
-    def load_ply(self, path):
-        plydata = PlyData.read(path)
+    def load_ply(self, path, path2=None):
+        xyz_list = []
+        features_dc_list = []
+        features_rest_list = []
+        opacity_list = []
+        scale_list = []
+        rotation_list = []
 
-        xyz = np.stack((np.asarray(plydata.elements[0]["x"]),
-                        np.asarray(plydata.elements[0]["y"]),
-                        np.asarray(plydata.elements[0]["z"])),  axis=1)
-        opacities = np.asarray(plydata.elements[0]["opacity"])[..., np.newaxis]
+        for i, p in enumerate([path, path2]):
+            print(p)
+            if p is None:
+                continue
+            plydata = PlyData.read(p)
 
-        features_dc = np.zeros((xyz.shape[0], 3, 1))
-        features_dc[:, 0, 0] = np.asarray(plydata.elements[0]["f_dc_0"])
-        features_dc[:, 1, 0] = np.asarray(plydata.elements[0]["f_dc_1"])
-        features_dc[:, 2, 0] = np.asarray(plydata.elements[0]["f_dc_2"])
+            xyz = np.stack((np.asarray(plydata.elements[0]["x"]),
+                            np.asarray(plydata.elements[0]["y"]),
+                            np.asarray(plydata.elements[0]["z"])),  axis=1)
+            opacities = np.asarray(plydata.elements[0]["opacity"])[..., np.newaxis]
 
-        extra_f_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("f_rest_")]
-        extra_f_names = sorted(extra_f_names, key = lambda x: int(x.split('_')[-1]))
-        assert len(extra_f_names)==3*(self.max_sh_degree + 1) ** 2 - 3
-        features_extra = np.zeros((xyz.shape[0], len(extra_f_names)))
-        for idx, attr_name in enumerate(extra_f_names):
-            features_extra[:, idx] = np.asarray(plydata.elements[0][attr_name])
-        # Reshape (P,F*SH_coeffs) to (P, F, SH_coeffs except DC)
-        features_extra = features_extra.reshape((features_extra.shape[0], 3, (self.max_sh_degree + 1) ** 2 - 1))
+            features_dc = np.zeros((xyz.shape[0], 3, 1))
+            features_dc[:, 0, 0] = np.asarray(plydata.elements[0]["f_dc_0"])
+            features_dc[:, 1, 0] = np.asarray(plydata.elements[0]["f_dc_1"])
+            features_dc[:, 2, 0] = np.asarray(plydata.elements[0]["f_dc_2"])
 
-        scale_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("scale_")]
-        scale_names = sorted(scale_names, key = lambda x: int(x.split('_')[-1]))
-        scales = np.zeros((xyz.shape[0], len(scale_names)))
-        for idx, attr_name in enumerate(scale_names):
-            scales[:, idx] = np.asarray(plydata.elements[0][attr_name])
+            extra_f_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("f_rest_")]
+            extra_f_names = sorted(extra_f_names, key = lambda x: int(x.split('_')[-1]))
+            assert len(extra_f_names)==3*(self.max_sh_degree + 1) ** 2 - 3
+            features_extra = np.zeros((xyz.shape[0], len(extra_f_names)))
+            for idx, attr_name in enumerate(extra_f_names):
+                features_extra[:, idx] = np.asarray(plydata.elements[0][attr_name])
+            # Reshape (P,F*SH_coeffs) to (P, F, SH_coeffs except DC)
+            features_extra = features_extra.reshape((features_extra.shape[0], 3, (self.max_sh_degree + 1) ** 2 - 1))
 
-        rot_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("rot")]
-        rot_names = sorted(rot_names, key = lambda x: int(x.split('_')[-1]))
-        rots = np.zeros((xyz.shape[0], len(rot_names)))
-        for idx, attr_name in enumerate(rot_names):
-            rots[:, idx] = np.asarray(plydata.elements[0][attr_name])
+            scale_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("scale_")]
+            scale_names = sorted(scale_names, key = lambda x: int(x.split('_')[-1]))
+            scales = np.zeros((xyz.shape[0], len(scale_names)))
+            for idx, attr_name in enumerate(scale_names):
+                scales[:, idx] = np.asarray(plydata.elements[0][attr_name])
+
+            rot_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("rot")]
+            rot_names = sorted(rot_names, key = lambda x: int(x.split('_')[-1]))
+            rots = np.zeros((xyz.shape[0], len(rot_names)))
+            for idx, attr_name in enumerate(rot_names):
+                rots[:, idx] = np.asarray(plydata.elements[0][attr_name])
+
+            def cull_features(xyz, features_dc, features_extra, opacities, scales, rots):
+                # Cull points that are greater than 1.0m away from the origin
+                print(torch.mean(torch.tensor(opacities), dim=-1))
+                valid_points_mask = torch.mean(torch.tensor(opacities), dim=-1) < 0.5
+                xyz = xyz[valid_points_mask]
+                features_dc = features_dc[valid_points_mask]
+                features_extra = features_extra[valid_points_mask]
+                opacities = opacities[valid_points_mask]
+                scales = scales[valid_points_mask]
+                rots = rots[valid_points_mask]
+                return xyz, features_dc, features_extra, opacities, scales, rots
+
+            # def build_rotation(x, y, z):
+            #     Rx = np.array([[1, 0, 0],
+            #                 [0, np.cos(x), -np.sin(x)],
+            #                 [0, np.sin(x), np.cos(x)]])
+            #     Ry = np.array([[np.cos(y), 0, np.sin(y)],
+            #                 [0, 1, 0],
+            #                 [-np.sin(y), 0, np.cos(y)]])
+            #     Rz = np.array([[np.cos(z), -np.sin(z), 0],
+            #                 [np.sin(z), np.cos(z), 0],
+            #                 [0, 0, 1]])
+            #     return Rx @ Ry @ Rz
+
+            def rotate_around_vector(xyz, vector, angle):
+                # https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle
+                vector = vector / np.linalg.norm(vector)
+                ux, uy, uz = vector
+                c = np.cos(angle)
+                s = np.sin(angle)
+                R = np.array([[c + ux**2 * (1 - c), ux * uy * (1 - c) - uz * s, ux * uz * (1 - c) + uy * s],
+                            [uy * ux * (1 - c) + uz * s, c + uy**2 * (1 - c), uy * uz * (1 - c) - ux * s],
+                            [uz * ux * (1 - c) - uy * s, uz * uy * (1 - c) + ux * s, c + uz**2 * (1 - c)]])
+                return xyz @ R.transpose()
+
+            def translate(xyz, vector):
+                return xyz + vector
+            
+            # xy plane is UP_VECTOR
+            # take projection of long forward vector onto xy plane to calculate forward vector
+            # calculate orthogonol vector to long forward vector and UP_VECTOR to calculate right vector
+
+            if i == 0:
+                # vector = np.array([0.35803405629105667, 0.9315585717873832, -0.06332647049396699])
+                # vector = np.array([ 0.35803406, -0.92733208, -0.108935  ])
+                # vector = np.array([ 0.93155857,  0.362683  , -0.025684  ])
+                # vector = np.array([ 1, 0, 0])
+                # UP_VECTOR = np.array([-0.9273320764708398, 0.36268300133732523, 0.09228358732315443])
+                UP_VECTOR = np.array([ 0.93149278,  0.36375419, -0.00202001])
+                xyz = rotate_around_vector(xyz, UP_VECTOR, 35 / 18 *np.pi)
+                # rotate along y axis
+                # rot = build_rotation(np.pi, 0, 0)
+                # xyz = xyz @ rot.transpose()
+                # xyz, features_dc, features_extra, opacities, scales, rots = cull_features(xyz, features_dc, features_extra, opacities, scales, rots)
+
+            if i == 1:
+                import math
+                xyz = xyz / 4
+                scales = scales * 1.5 #math.log10(4) # guess and checked
+                print(xyz.mean(axis=0))
+            print("Loaded {} points from {}".format(xyz.shape[0], p))
+            xyz_list.append(xyz)
+            features_dc_list.append(features_dc)
+            features_rest_list.append(features_extra)
+            opacity_list.append(opacities)
+            scale_list.append(scales)
+            rotation_list.append(rots)
+
+        xyz = np.concatenate(xyz_list, axis=0)
+        features_dc = np.concatenate(features_dc_list, axis=0)
+        features_extra = np.concatenate(features_rest_list, axis=0)
+        opacities = np.concatenate(opacity_list, axis=0)
+        scales = np.concatenate(scale_list, axis=0)
+        rots = np.concatenate(rotation_list, axis=0)
 
         self._xyz = nn.Parameter(torch.tensor(xyz, dtype=torch.float, device="cuda").requires_grad_(True))
         self._features_dc = nn.Parameter(torch.tensor(features_dc, dtype=torch.float, device="cuda").transpose(1, 2).contiguous().requires_grad_(True))

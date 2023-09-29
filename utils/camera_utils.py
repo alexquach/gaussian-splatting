@@ -9,10 +9,11 @@
 # For inquiries contact  george.drettakis@inria.fr
 #
 
-from scene.cameras import Camera
+from scene.cameras import Camera, FakeCamera
 import numpy as np
 from utils.general_utils import PILtoTorch
-from utils.graphics_utils import fov2focal
+from utils.graphics_utils import fov2focal, focal2fov
+import json
 
 WARNED = False
 
@@ -80,3 +81,37 @@ def camera_to_JSON(id, camera : Camera):
         'fx' : fov2focal(camera.FovX, camera.width)
     }
     return camera_entry
+
+def recover_camera_RT(pos, rot):
+    C2W = np.zeros((4, 4))
+    C2W[:3, :3] = rot
+    C2W[:3, 3] = pos
+    C2W[3, 3] = 1.0
+
+    Rt = np.linalg.inv(C2W)
+    camera_R = Rt[:3, :3].transpose()
+    camera_T = Rt[:3, 3]
+
+    return camera_R, camera_T
+
+def camera_from_JSON(json_camera):
+    # print(f"json_camera: {json_camera}")
+    rot = np.array(json_camera['rotation'])
+    pos = np.array(json_camera['position'])
+    print(f"pos norm: {np.linalg.norm(pos)}")
+
+    R, T = recover_camera_RT(pos, rot)
+
+    width = json_camera['width']
+    height = json_camera['height']
+    FovY = focal2fov(json_camera['fy'], height)
+    FovX = focal2fov(json_camera['fx'], width)
+    image_name = json_camera['img_name']
+
+    return FakeCamera(colmap_id=json_camera['id'], R=R, T=T, FoVx=FovX, FoVy=FovY, image_width=width, image_height=height,
+                      image_name=image_name, uid=json_camera['id'])
+
+def parse_custom_cameras(custom_camera_path):
+    with open(custom_camera_path, 'r') as f:
+        cameras = json.load(f)
+    return [camera_from_JSON(c) for c in cameras]

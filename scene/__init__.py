@@ -78,6 +78,10 @@ class Scene:
             self.gaussians.load_ply(os.path.join(self.model_path,
                                                            "point_cloud",
                                                            "iteration_" + str(self.loaded_iter),
+                                                           "point_cloud.ply"),
+                                    os.path.join("/home/makramchahine/repos/gaussian-splatting/output/red_ball_black6",
+                                                           "point_cloud",
+                                                           "iteration_" + str(self.loaded_iter),
                                                            "point_cloud.ply"))
         else:
             self.gaussians.create_from_pcd(scene_info.point_cloud, self.cameras_extent)
