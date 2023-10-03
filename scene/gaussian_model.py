@@ -212,7 +212,7 @@ class GaussianModel:
         optimizable_tensors = self.replace_tensor_to_optimizer(opacities_new, "opacity")
         self._opacity = optimizable_tensors["opacity"]
 
-    def load_ply(self, path, path2=None):
+    def load_ply(self, path, path2=None, rotation_theta=0.0):
         xyz_list = []
         features_dc_list = []
         features_rest_list = []
@@ -257,29 +257,6 @@ class GaussianModel:
             for idx, attr_name in enumerate(rot_names):
                 rots[:, idx] = np.asarray(plydata.elements[0][attr_name])
 
-            def cull_features(xyz, features_dc, features_extra, opacities, scales, rots):
-                # Cull points that are greater than 1.0m away from the origin
-                print(torch.mean(torch.tensor(opacities), dim=-1))
-                valid_points_mask = torch.mean(torch.tensor(opacities), dim=-1) < 0.5
-                xyz = xyz[valid_points_mask]
-                features_dc = features_dc[valid_points_mask]
-                features_extra = features_extra[valid_points_mask]
-                opacities = opacities[valid_points_mask]
-                scales = scales[valid_points_mask]
-                rots = rots[valid_points_mask]
-                return xyz, features_dc, features_extra, opacities, scales, rots
-
-            # def build_rotation(x, y, z):
-            #     Rx = np.array([[1, 0, 0],
-            #                 [0, np.cos(x), -np.sin(x)],
-            #                 [0, np.sin(x), np.cos(x)]])
-            #     Ry = np.array([[np.cos(y), 0, np.sin(y)],
-            #                 [0, 1, 0],
-            #                 [-np.sin(y), 0, np.cos(y)]])
-            #     Rz = np.array([[np.cos(z), -np.sin(z), 0],
-            #                 [np.sin(z), np.cos(z), 0],
-            #                 [0, 0, 1]])
-            #     return Rx @ Ry @ Rz
 
             def rotate_around_vector(xyz, vector, angle):
                 # https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle
@@ -305,8 +282,14 @@ class GaussianModel:
                 # vector = np.array([ 0.93155857,  0.362683  , -0.025684  ])
                 # vector = np.array([ 1, 0, 0])
                 # UP_VECTOR = np.array([-0.9273320764708398, 0.36268300133732523, 0.09228358732315443])
-                UP_VECTOR = np.array([ 0.93149278,  0.36375419, -0.00202001])
-                xyz = rotate_around_vector(xyz, UP_VECTOR, 35 / 18 *np.pi)
+                
+                # UP_VECTOR = np.array([ 0.93149278,  0.36375419, -0.00202001]) # original [0] long? --- now its just bad
+                # UP_VECTOR = np.array([-0.00083638, -0.00147918,  0.00043396])
+                # UP_VECTOR = np.array([-0.00083638, -0.00147918,  0.00043396])
+                # UP_VECTOR = np.array([-0.92733208,  0.362683,    0.09228359]) # iffy, [2] long
+                # UP_VECTOR = np.array([-0.92937615,  0.36207712,  0.07183407]) # iffygood?; [0] long
+                UP_VECTOR = np.array([-0.928382,  0.362077,  0.083703]) # ; [0] base
+                xyz = rotate_around_vector(xyz, UP_VECTOR, rotation_theta)
                 # rotate along y axis
                 # rot = build_rotation(np.pi, 0, 0)
                 # xyz = xyz @ rot.transpose()
@@ -314,8 +297,8 @@ class GaussianModel:
 
             if i == 1:
                 import math
-                xyz = xyz / 4
-                scales = scales * 1.5 #math.log10(4) # guess and checked
+                # xyz = xyz / 4
+                # scales = scales * 1.5 #math.log10(4) # guess and checked
                 print(xyz.mean(axis=0))
             print("Loaded {} points from {}".format(xyz.shape[0], p))
             xyz_list.append(xyz)

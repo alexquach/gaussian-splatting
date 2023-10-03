@@ -22,11 +22,12 @@ class Scene:
 
     gaussians : GaussianModel
 
-    def __init__(self, args : ModelParams, gaussians : GaussianModel, load_iteration=None, shuffle=True, resolution_scales=[1.0]):
+    def __init__(self, args : ModelParams, gaussians : GaussianModel, load_iteration=None, shuffle=True, resolution_scales=[1.0], object_path=None, rotation_theta=0.0):
         """b
         :param path: Path to colmap scene main folder.
         """
         self.model_path = args.model_path
+        self.object_path = object_path
         self.loaded_iter = None
         self.gaussians = gaussians
 
@@ -79,10 +80,11 @@ class Scene:
                                                            "point_cloud",
                                                            "iteration_" + str(self.loaded_iter),
                                                            "point_cloud.ply"),
-                                    os.path.join("/home/makramchahine/repos/gaussian-splatting/output/red_ball_black6",
+                                    os.path.join(self.object_path,
                                                            "point_cloud",
                                                            "iteration_" + str(self.loaded_iter),
-                                                           "point_cloud.ply"))
+                                                           "point_cloud.ply"),        
+                                    rotation_theta)
         else:
             self.gaussians.create_from_pcd(scene_info.point_cloud, self.cameras_extent)
 
