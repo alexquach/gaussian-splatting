@@ -1,22 +1,48 @@
 import os
 import sys
 import subprocess
+from PIL import Image, ImageDraw, ImageFont 
+
+DUAL = False
 
 def images_to_video(image_folder, video_output):
     # Ensure ffmpeg is installed
     assert subprocess.call('type ffmpeg', shell=True, 
            stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0, "ffmpeg was not found on your system; please install ffmpeg"
 
-    # Define the command for converting images to video using ffmpeg
-    command = "ffmpeg -framerate 30 -i '{}/%05d.png' -c:v libx264 -pix_fmt yuv420p {}".format(image_folder, video_output)
+    if DUAL:
+        rows = 1
+        cols = 2
 
-    # Execute the command
-    subprocess.call(command, shell=True)
+        os.mkdir(os.path.join(image_folder, "labeled_pics"))
+        for i, (img_path, img_path2) in enumerate(zip(sorted(os.listdir(os.path.join(image_folder, "pics0"))), sorted(os.listdir(os.path.join(image_folder, "pybullet_pics0"))))):
+            img = Image.open(os.path.join(image_folder, "pics0", img_path))
+            img2 = Image.open(os.path.join(image_folder, "pybullet_pics0", img_path2))
+            width, height = img.size
+            output_image = Image.new('RGB', (width * cols, height * rows), color=(255, 255, 255))
+        
+            draw = ImageDraw.Draw(output_image)
+            font = ImageFont.truetype("/usr/share/fonts/truetype/lato/Lato-Medium.ttf", size=20)
+
+            positions = [(x, y) for x in range(0, width * cols, width) for y in range(0, height * rows, height)]
+            for image, pos in zip([img, img2], positions):
+                output_image.paste(image, pos)
+
+            if i < 30:
+                draw.text((cols * width - 60, 10), "begin", fill="red", font=font)
+
+            output_image.save(os.path.join(image_folder, "labeled_pics", img_path))
+
+        os.system(f"ffmpeg -framerate 240 -pattern_type glob -i '{image_folder}/labeled_pics/0*.png' -c:v libx264 -pix_fmt yuv420p {video_output} > /dev/null 2>&1")
+        os.system(f"rm -rf {image_folder}/labeled_pics")
+    else:
+        command = "ffmpeg -framerate 30 -i '{}/pics0/%05d.png' -c:v libx264 -pix_fmt yuv420p {}".format(image_folder, video_output)
+        subprocess.call(command, shell=True)
 
 def combine_videos(eval_dir, video_filename="video.mp4"):
     import subprocess
 
-    video_paths = [os.path.join(eval_dir, f"{absolute_path}/video.mp4") for absolute_path in sorted(os.listdir(eval_dir)) if os.path.isdir(os.path.join(eval_dir, absolute_path)) ]
+    video_paths = [os.path.join(eval_dir, f"{absolute_path}/video.mp4") for absolute_path in sorted(os.listdir(eval_dir)) if os.path.isdir(os.path.join(eval_dir, absolute_path)) and f"{video_filename}" in os.listdir(os.path.join(eval_dir, absolute_path))]
     combined_video_filename = "combined_video.mp4"
     # concatenate all videos in video_paths
     with open("input.txt", "w") as f:
@@ -29,8 +55,9 @@ if __name__ == "__main__":
     # Get the image folder from command line arguments
     directory_folder = sys.argv[1]
 
-    for image_folder_name in os.listdir(directory_folder):
-        image_folder = os.path.join(directory_folder, image_folder_name, "pics0")
+    for image_folder_name in sorted(os.listdir(directory_folder))[:20]:
+        image_folder = os.path.join(directory_folder, image_folder_name)
+        # image_folder = os.path.join(directory_folder, image_folder_name, "pics0")
         video_output = os.path.join(directory_folder, image_folder_name, "video.mp4")
         print(image_folder)
         if f"video.mp4" in os.listdir(os.path.join(directory_folder, image_folder_name)):

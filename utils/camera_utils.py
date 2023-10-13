@@ -94,11 +94,10 @@ def recover_camera_RT(pos, rot):
 
     return camera_R, camera_T
 
-def camera_from_JSON(json_camera):
+def camera_from_dict(json_camera):
     # print(f"json_camera: {json_camera}")
     rot = np.array(json_camera['rotation'])
     pos = np.array(json_camera['position'])
-    print(f"pos norm: {np.linalg.norm(pos)}")
 
     R, T = recover_camera_RT(pos, rot)
 
@@ -114,4 +113,4 @@ def camera_from_JSON(json_camera):
 def parse_custom_cameras(custom_camera_path):
     with open(custom_camera_path, 'r') as f:
         cameras = json.load(f)
-    return [camera_from_JSON(c) for c in cameras]
+    return [camera_from_dict(c) for c in cameras]

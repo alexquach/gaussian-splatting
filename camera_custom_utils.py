@@ -28,7 +28,7 @@ def process_keycamera_to_W2C(keycamera_dict):
     # project origin onto plane defined by up direction
     origin = origin - np.dot(origin, up) * up
 
-    print(f"long: {np.array(rotate_about_forward_direction({'rotation': rot, 'position': origin.tolist()}, np.pi/2)['rotation'])[:, 1]}")
+    # print(f"long: {np.array(rotate_about_forward_direction({'rotation': rot, 'position': origin.tolist()}, np.pi/2)['rotation'])[:, 1]}")
 
     return {
         'position': origin.tolist(),
@@ -71,8 +71,7 @@ def get_forward_direction(camera_dict):
 
 def move_forward(start_dict, distance, delta):
     new_dict = start_dict.copy()
-    rot = np.array(new_dict['rotation'])
-    pos = np.array(new_dict['position'])
+    pos, rot = get_pos_rot(start_dict)
     
     forward_direction = rot[:, 2]
     pos = pos + forward_direction * distance
@@ -80,24 +79,25 @@ def move_forward(start_dict, distance, delta):
     delta = delta + np.array([distance, 0, 0, 0])
     return new_dict, delta
 
-def rise_relative_to_camera(start_dict, distance):
+def move_sideways(start_dict, distance, delta):
     new_dict = start_dict.copy()
-    rot = np.array(new_dict['rotation'])
-    pos = np.array(new_dict['position'])
+    pos, rot = get_pos_rot(start_dict)
     
-    up_direction = -rot[:, 0]
+    forward_direction = rot[:, 0]
+    pos = pos + forward_direction * distance
+    new_dict['position'] = pos.tolist()
+    delta = delta + np.array([0, distance, 0, 0])
+    return new_dict, delta
+
+def rise_relative_to_camera(start_dict, distance, delta):
+    new_dict = start_dict.copy()
+    pos, rot = get_pos_rot(start_dict)
+    
+    up_direction = rot[:, 1]
     pos = pos + up_direction * distance
     new_dict['position'] = pos.tolist()
-    return new_dict
-
-def rotate_relative_to_camera(start_dict, angle):
-    new_dict = start_dict.copy()
-    rot = np.array(new_dict['rotation'])
-    pos = np.array(new_dict['position'])
-    
-    rot = rot @ np.array([[np.cos(angle), 0, np.sin(angle)], [0, 1, 0], [-np.sin(angle), 0, np.cos(angle)]])
-    new_dict['rotation'] = rot.tolist()
-    return new_dict
+    delta = delta + np.array([0, 0, distance, 0])
+    return new_dict, delta
 
 def point_camera_at(start_dict, point):
     new_dict = start_dict.copy()
@@ -114,10 +114,6 @@ def point_camera_at(start_dict, point):
     up_direction = np.cross(forward_direction, right_direction)
     up_direction = up_direction / np.linalg.norm(up_direction)
     
-    # import itertools
-    # import random
-    # order = random.sample(list(itertools.permutations([up_direction, right_direction, forward_direction], 3)), 1)
-    # print(order)
     rot = np.array([up_direction, right_direction, forward_direction])
     new_dict['rotation'] = rot.tolist()
     return new_dict
@@ -188,7 +184,6 @@ def rotate_about_up_direction(rot, angle):
     # rotate on second row, is close to right direction
     # rotate on third row, is forward direction
 
-
     # Apply the rotation to the camera's rotation matrix
     new_rot = (rot @ rotation_matrix)
     # print(new_rot)
@@ -229,3 +224,19 @@ def camera_diff(camera1, camera2):
 
     print("Position difference: ", pos_diff)
     print("Rotation difference: ", rot_diff)
+
+def get_yaw_diff_relative_to_origin(camera_dict):
+    # global yaw
+    pos, rot = get_pos_rot(camera_dict)
+    forward_direction = rot[:, 2]
+    forward_direction = forward_direction / np.linalg.norm(forward_direction)
+    yaw = np.arctan2(forward_direction[2], forward_direction[0])
+
+    # global yaw of optimal orientation directly facing origin from pos
+    theta = np.arctan2(pos[2], pos[0]) + np.pi
+
+    diff = yaw - theta
+
+    #normalize to [-pi, pi]
+    diff = (diff + np.pi) % (2 * np.pi) - np.pi
+    return diff, theta

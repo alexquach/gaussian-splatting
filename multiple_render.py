@@ -1,5 +1,6 @@
 import os
 import subprocess
+from tqdm import tqdm
 
 COLOR_MAP = {
     "R": "/home/makramchahine/repos/gaussian-splatting/output/solid_red_ball",
@@ -13,7 +14,7 @@ def run_script(m_path, s_path, custom_camera_path, color):
         "-m", m_path,
         "-s", s_path,
         "--custom_camera_path", custom_camera_path,
-        "--object_path", COLOR_MAP[color],
+        "--object_color", color,
     ]
     subprocess.run(cmd)
 
@@ -22,8 +23,8 @@ m_path = "/home/makramchahine/repos/gaussian-splatting/output/holodeck2"
 s_path = "/home/makramchahine/repos/nerf/data/nerfstudio/custom/holodeck2/keyframes"
 
 # Run the script multiple times
-base_dir = "./camera_assets/generated"
-for folder in os.listdir(base_dir):
+base_dir = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d0"
+for folder in tqdm(sorted(os.listdir(base_dir))):
     if not os.path.isdir(os.path.join(base_dir, folder)):
         continue
     
