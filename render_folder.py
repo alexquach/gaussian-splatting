@@ -3,9 +3,7 @@ import sys
 import subprocess
 from PIL import Image, ImageDraw, ImageFont 
 
-DUAL = False
-
-def images_to_video(image_folder, video_output):
+def images_to_video(image_folder, video_output, DUAL):
     # Ensure ffmpeg is installed
     assert subprocess.call('type ffmpeg', shell=True, 
            stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0, "ffmpeg was not found on your system; please install ffmpeg"
@@ -53,16 +51,17 @@ def combine_videos(eval_dir, video_filename="video.mp4"):
 
 if __name__ == "__main__":
     # Get the image folder from command line arguments
+    DUAL = True
     directory_folder = sys.argv[1]
 
     for image_folder_name in sorted(os.listdir(directory_folder))[:20]:
         image_folder = os.path.join(directory_folder, image_folder_name)
-        # image_folder = os.path.join(directory_folder, image_folder_name, "pics0")
         video_output = os.path.join(directory_folder, image_folder_name, "video.mp4")
         print(image_folder)
         if f"video.mp4" in os.listdir(os.path.join(directory_folder, image_folder_name)):
+            # os.system(f"rm -rf {video_output}")
             continue
-        images_to_video(image_folder, video_output)
+        images_to_video(image_folder, video_output, DUAL)
 
     # Combine all videos in the directory
     combine_videos(directory_folder)

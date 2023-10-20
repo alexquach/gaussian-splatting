@@ -5,6 +5,7 @@ from tqdm import tqdm
 COLOR_MAP = {
     "R": "/home/makramchahine/repos/gaussian-splatting/output/solid_red_ball",
     "B": "/home/makramchahine/repos/gaussian-splatting/output/solid_blue_ball",
+    "G": "/home/makramchahine/repos/gaussian-splatting/output/solid_blue_ball",
 }
 
 def run_script(m_path, s_path, custom_camera_path, color):
@@ -23,7 +24,7 @@ m_path = "/home/makramchahine/repos/gaussian-splatting/output/holodeck2"
 s_path = "/home/makramchahine/repos/nerf/data/nerfstudio/custom/holodeck2/keyframes"
 
 # Run the script multiple times
-base_dir = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d0"
+base_dir = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d2_300"
 for folder in tqdm(sorted(os.listdir(base_dir))):
     if not os.path.isdir(os.path.join(base_dir, folder)):
         continue

@@ -72,7 +72,7 @@ def interpolate_speeds(dist, critical_dist, critical_dist_buffer, speed1, speed2
 def scale_yaw_speed(yaw_speed, yaw_dist):
     return yaw_speed * np.sign(yaw_dist)
 
-def generate_one_camera_path(save_path, color):
+def generate_one_naive_camera_path(save_path, color):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     
@@ -102,8 +102,6 @@ def generate_one_camera_path(save_path, color):
         # Get distances
         dist = dist_from_origin(last_dict)
         yaw_dist, yaw_gt = get_yaw_diff_relative_to_origin(last_dict)
-
-        # print(yaw_dist)
 
         lift_speed = -1 * np.sign(active_height_offset) * interpolate_speeds(abs(active_height_offset), 0, LIFT_HEIGHT_BUFFER, 0, STABILIZE_LIFT_SPEED)
         last_dict, delta = rise_relative_to_camera(last_dict, lift_speed, delta)
@@ -154,7 +152,7 @@ def generate_one_camera_path(save_path, color):
     with open(f"{save_path}/colors.txt", 'w') as f:
         f.write(str(color))
 
-def generate_pybullet_camera_path(run_path, color):
+def generate_one_pybullet_camera_path(run_path):
     save_list = []
     start_dict = get_start_camera()
 
@@ -163,15 +161,10 @@ def generate_pybullet_camera_path(run_path, color):
 
     with open(os.path.join(base_path, run, "start_h.txt"), "r") as f:
         start_h = f.readline().strip()
-        height_offset = float(start_h) - 0.1
+        height_offset = float(start_h) - 0.1 - 0.5
 
     with open(os.path.join(base_path, run, "theta.txt"), "r") as f:
-        theta_key = f.readline().strip()
-        theta_map = {
-            "P": 0.175 * np.pi,
-            "N": -0.175 * np.pi,
-        }
-        theta_offset = theta_map[theta_key]
+        theta_offset = float(f.readline().strip())
 
     # SCALING_FACTOR = 3.5 / start_dist
     SCALING_FACTOR = 2.5
@@ -202,23 +195,18 @@ mode = "pybullet"
 if __name__ == "__main__":
     if mode == "debug":
         color = "R"
-        generate_one_camera_path(f"{debug_dir}", color)
+        generate_one_naive_camera_path(f"{debug_dir}", color)
     elif mode == "naive":
         # Create an array of length NUM_SAMPLES, where half the entries are "B" and half are "R"
         colors = ["B"] * (NUM_SAMPLES // 2) + ["R"] * (NUM_SAMPLES // 2)
         random.shuffle(colors)
         
         for i, color in enumerate(colors):
-            generate_one_camera_path(f"{base_dir}/path_{i}", color)
+            generate_one_naive_camera_path(f"{base_dir}/path_{i}", color)
     elif mode == "pybullet":
-        base_path = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d0"
+        base_path = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d2_smoothyaw_300"
 
         for run in os.listdir(base_path):
             if not os.path.isdir(os.path.join(base_path, run)):
                 continue
-
-            # read color from color.txt
-            with open(os.path.join(base_path, run, "colors.txt"), "r") as f:
-                color = f.readline().strip()
-
-            generate_pybullet_camera_path(f"{base_path}/{run}", color)
+            generate_one_pybullet_camera_path(f"{base_path}/{run}")
