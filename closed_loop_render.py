@@ -10,6 +10,8 @@ from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import joblib
 import subprocess
+import matplotlib.pyplot as plt
+plt.rcParams.update({'figure.facecolor':'white'})
 
 from render_folder import images_to_video, combine_videos
 
@@ -28,18 +30,21 @@ video_filename = "rand.mp4"
 
 # ! Adjustable Params
 USE_DYNAMIC = True
-        # "--closed_loop_save_path", f"/home/makramchahine/repos/gaussian-splatting/camera_assets/cl_g1_full_smoothest_300_og_600sf/{folder_name}"
-        # "--closed_loop_save_path", f"/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/cl_d0_300_og_600sf_rot_last_fixcap_rec100_stablize/{folder_name}"
-        # "--closed_loop_save_path", f"/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/cl_h0f_hr_pybullet_300_og_600sf_rec100_debug_fixh/{folder_name}"
-MAIN_OUTPUT_FOLDER = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/cl_d2_300_ogf_300sf"
-MAIN_CHECKPOINT_FOLDER = "/home/makramchahine/repos/drone_multimodal/runner_models/filtered_d2_300_ogf_300sf"
-NORMALIZE_PATH = '/home/makramchahine/repos/drone_multimodal/clean_train_d0_300/mean_std.csv'
+# MAIN_OUTPUT_FOLDER = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/cl_d2_smoothyaw_300_ogf_300sf_multi_fs"
+# MAIN_CHECKPOINT_FOLDER = "/home/makramchahine/repos/drone_multimodal/runner_models/filtered_d2_smoothyaw_300_ogf_300sf"
+# MAIN_OUTPUT_FOLDER = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/cl_d5_corner_nonorm_300_srf_200sf_multi_le_8hz_irreg"
+# MAIN_CHECKPOINT_FOLDER = "/home/makramchahine/repos/drone_multimodal/runner_models/filtered_d5_corner_nonorm_300_srf_200sf_irreg1"
+tag = "d6_nonorm_ss2_450_38hzf_td5_srf_200sf_irreg2"
+MAIN_OUTPUT_FOLDER = f"/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/cl_{tag}_multi_le_4hz_debugs"
+MAIN_CHECKPOINT_FOLDER = f"/home/makramchahine/repos/drone_multimodal/runner_models/filtered_{tag}"
+# MAIN_CHECKPOINT_FOLDER = "/home/makramchahine/repos/drone_multimodal/runner_models/filtered_d6_nonorm_ss2_600_3hzf_srf_300sf"
+NORMALIZE_PATH = '/home/makramchahine/repos/drone_multimodal/clean_train_d3_300/mean_std.csv'
 SAMPLES_PER_MODEL = 10
 RUN_VAL = True
 USE_EPOCH_FILTER = True
-EPOCH_FILTER = [100, 200, 300, 400, 500, 600]#, 700, 800, 900, 1000, 1100, 1200]
+EPOCH_FILTER = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]
 
-def run_GS_render(color, run_absolute_path, params_path, checkpoint_path):
+def run_GS_render(color, run_absolute_paths, params_paths, checkpoint_paths):
     cmd = [
         "python",
         "render.py",
@@ -47,9 +52,9 @@ def run_GS_render(color, run_absolute_path, params_path, checkpoint_path):
         "-s", S_PATH,
         "--object_color", color,
         "--normalize_path", NORMALIZE_PATH,
-        "--params_path", params_path,
-        "--checkpoint_path", checkpoint_path,
-        "--closed_loop_save_path", run_absolute_path
+        "--params_paths", *params_paths,
+        "--checkpoint_paths", *checkpoint_paths,
+        "--closed_loop_save_paths", *run_absolute_paths
     ]
     if USE_DYNAMIC:
         cmd.append("--use_dynamic")
@@ -57,15 +62,14 @@ def run_GS_render(color, run_absolute_path, params_path, checkpoint_path):
 
 
 def main():
-    os.makedirs(MAIN_OUTPUT_FOLDER, exist_ok=True)
+    # os.makedirs(MAIN_OUTPUT_FOLDER, exist_ok=True)
     evaluator = Evaluator(MAIN_OUTPUT_FOLDER, MAIN_CHECKPOINT_FOLDER, multi=False)
 
-    if RUN_VAL:
-        evaluator.config_val_eval()
-    evaluator.config_recurrent_eval()
+    evaluator.config_eval_models(RUN_VAL)
 
     evaluator.run_concurrent()
     evaluator.save_videos(dual_video=True)
+    evaluator.calculate_metrics()
 
 class Evaluator():
     def __init__(self, main_output_folder, main_checkpoint_folder, multi=False):
@@ -76,7 +80,7 @@ class Evaluator():
         self.main_checkpoint_folder = main_checkpoint_folder
         self.concurrent_params_paths = []
         self.concurrent_checkpoint_paths = []
-        self.output_folder_full_paths = []
+        self.concurrent_output_folder_full_paths = []
         self.multi = multi
 
     def config_val_eval(self):
@@ -96,14 +100,16 @@ class Evaluator():
             for i in range(SAMPLES_PER_MODEL):
                 self.concurrent_checkpoint_paths.append(hdf5_file_path)
                 self.concurrent_params_paths.append(json_file_path)
-                self.output_folder_full_paths.append(os.path.join(self.main_output_folder, 'val', f'run_{i}'))
+                self.concurrent_output_folder_full_paths.append(os.path.join(self.main_output_folder, 'val', f'run_{i}'))
 
         self.append_initial_conditions()
 
-    def config_recurrent_eval(self):
+    def config_eval_models(self, RUN_VAL):
+        eval_models = []
+        
+        # ! Recurrent
         recurrent_folder = os.path.join(self.main_checkpoint_folder, 'recurrent')
         hdf5_files = glob.glob(os.path.join(recurrent_folder, '*.hdf5'))
-
         for hdf5_file_path in hdf5_files:
             epoch_num = int(re.findall(r'epoch-(\d+)', hdf5_file_path)[0]) # parse "epoch-%d" from hdf5 filename
             print(epoch_num)
@@ -114,13 +120,33 @@ class Evaluator():
             if os.path.exists(os.path.join(self.main_output_folder, f'recurrent{epoch_num}')):
                 print(f"skipping epoch {epoch_num}")
                 continue
-            for i in range(SAMPLES_PER_MODEL):
-                if os.path.exists(os.path.join(self.main_checkpoint_folder, 'recurrent', f'params{epoch_num}.json')):
-                    self.concurrent_checkpoint_paths.append(hdf5_file_path)
-                    self.concurrent_params_paths.append(os.path.join(self.main_checkpoint_folder, 'recurrent', f'params{epoch_num}.json'))
-                    self.output_folder_full_paths.append(os.path.join(self.main_output_folder, f'recurrent{epoch_num}', f'run_{i}'))
+            
+            eval_models.append((hdf5_file_path, epoch_num))
+        
+        # ! Val
+        if RUN_VAL:
+            recurrent_folder = os.path.join(self.main_checkpoint_folder, 'val')
+            hdf5_files = glob.glob(os.path.join(recurrent_folder, '*.hdf5'))
+            eval_models.append((hdf5_files[0], 'val'))
 
-            self.append_initial_conditions()
+        # ! Build concurrent runs
+        for i in range(SAMPLES_PER_MODEL):
+            concurrent_checkpoint_path = []
+            concurrent_params_path = []
+            concurrent_output_folder_full_path = []
+            for hdf5_file_path, epoch_num in eval_models:
+                concurrent_checkpoint_path.append(hdf5_file_path)
+                if epoch_num != 'val':
+                    concurrent_params_path.append(os.path.join(self.main_checkpoint_folder, 'recurrent', f'params{epoch_num}.json'))
+                    concurrent_output_folder_full_path.append(os.path.join(self.main_output_folder, f'recurrent{epoch_num}', f'run_{i}'))
+                else:
+                    concurrent_params_path.append(os.path.join(self.main_checkpoint_folder, 'val', 'params.json'))
+                    concurrent_output_folder_full_path.append(os.path.join(self.main_output_folder, 'val', f'run_{i}'))
+            self.concurrent_checkpoint_paths.append(concurrent_checkpoint_path)
+            self.concurrent_params_paths.append(concurrent_params_path)
+            self.concurrent_output_folder_full_paths.append(concurrent_output_folder_full_path)
+
+        self.append_initial_conditions()
 
     def append_initial_conditions(self):
         """
@@ -150,13 +176,13 @@ class Evaluator():
         else:
             OBJECTS = self.PRIMITIVE_OBJECTS * (SAMPLES_PER_MODEL // len(self.PRIMITIVE_OBJECTS))#[[random.choice(OBJECTS)] for _ in range(len(output_folder_paths))]
             # OBJECTS = [[x] for x in OBJECTS]
-            LOCATIONS_REL = [[(random.uniform(0.75, 2.0), 0)] for _ in range(len(self.output_folder_full_paths))]
+            LOCATIONS_REL = [[(random.uniform(0.75, 2.0), 0)] for _ in range(len(self.concurrent_output_folder_full_paths))]
 
         self.OBJECTS.extend(OBJECTS)
 
     def run_concurrent(self, n_jobs=1):
         print(self.OBJECTS)
-        joblib.Parallel(n_jobs=n_jobs)(joblib.delayed(run_GS_render)(color, run_absolute_path, params_path, checkpoint_path) for color, run_absolute_path, params_path, checkpoint_path in tqdm(zip(self.OBJECTS, self.output_folder_full_paths, self.concurrent_params_paths, self.concurrent_checkpoint_paths)))
+        joblib.Parallel(n_jobs=n_jobs)(joblib.delayed(run_GS_render)(color, run_absolute_path, params_path, checkpoint_path) for color, run_absolute_path, params_path, checkpoint_path in tqdm(zip(self.OBJECTS, self.concurrent_output_folder_full_paths, self.concurrent_params_paths, self.concurrent_checkpoint_paths)))
 
     def save_videos(self, dual_video):
         for different_checkpoint_model in os.listdir(self.main_output_folder):
@@ -174,6 +200,36 @@ class Evaluator():
 
             # Combine all videos in the directory
             combine_videos(os.path.join(self.main_output_folder, different_checkpoint_model))
+
+    def calculate_metrics(self):
+        eval_map = {}
+        for different_checkpoint_model in os.listdir(self.main_output_folder):
+            if not os.path.isdir(os.path.join(self.main_output_folder, different_checkpoint_model)):
+                continue
+            runs_history = []
+            for image_folder_name in sorted(os.listdir(os.path.join(self.main_output_folder, different_checkpoint_model))):
+                if not os.path.isdir(os.path.join(self.main_output_folder, different_checkpoint_model, image_folder_name)):
+                    continue
+                result_txt_path = os.path.join(self.main_output_folder, different_checkpoint_model, image_folder_name, "finish.txt")
+
+                predictions_labels = np.genfromtxt(result_txt_path, delimiter=',', dtype=str, skip_header=0)
+                runs_history.append(np.mean([row[0] == row[1] for row in predictions_labels]))
+            eval_map[different_checkpoint_model] = np.mean(runs_history)
+            print(f"model accuracy: {eval_map[different_checkpoint_model]}")
+
+        print(eval_map)
+        values_w_epochs = [(int(''.join(filter(str.isdigit, folder_tag))), value) for folder_tag, value in eval_map.items() if any(char.isdigit() for char in folder_tag)]
+        values_wo_epochs = [(folder_tag, value) for folder_tag, value in eval_map.items() if not any(char.isdigit() for char in folder_tag)]
+        epochs, values = zip(*sorted(values_w_epochs, key=lambda x: x[0]))
+        plt.scatter(epochs, values)
+
+        plt.scatter([0] * len(values_wo_epochs), [value for _, value in values_wo_epochs])
+        max_acc = max(eval_map.values())
+        plt.ylabel(f"Accuracy (16 runs); max={max_acc:.03f}")
+        plt.xlabel("Epochs")
+        plt.ylim(0, 1.1)
+        plt.title(f"{self.main_output_folder}")
+        plt.savefig(f"{self.main_output_folder}/accuracy.png")
 
 if __name__ == "__main__":
     main()

@@ -14,12 +14,14 @@ import numpy as np
 from utils.general_utils import inverse_sigmoid, get_expon_lr_func, build_rotation
 from torch import nn
 import os
+import random
 from utils.system_utils import mkdir_p
 from plyfile import PlyData, PlyElement
 from utils.sh_utils import RGB2SH
 from simple_knn._C import distCUDA2
 from utils.graphics_utils import BasicPointCloud
 from utils.general_utils import strip_symmetric, build_scaling_rotation
+from scene.gaussian_model_utils import rotate_around_vector, move_in_direction
 
 class GaussianModel:
 
@@ -212,7 +214,7 @@ class GaussianModel:
         optimizable_tensors = self.replace_tensor_to_optimizer(opacities_new, "opacity")
         self._opacity = optimizable_tensors["opacity"]
 
-    def load_ply(self, path, path2=None, rotation_theta=0.0):
+    def load_ply(self, path, path2=None, rotation_theta=0.0, add_second_ball=False, second_color="R", sideways_offset=0.0):
         xyz_list = []
         features_dc_list = []
         features_rest_list = []
@@ -220,7 +222,21 @@ class GaussianModel:
         scale_list = []
         rotation_list = []
 
-        for i, p in enumerate([path, path2]):
+        COLOR_MAP = {
+            "R": "/home/makramchahine/repos/gaussian-splatting/output/solid_red_ball",
+            "B": "/home/makramchahine/repos/gaussian-splatting/output/solid_blue_ball",
+        }
+        object_path3 = COLOR_MAP[second_color]
+        # object_path3 = random.choice(["/home/makramchahine/repos/gaussian-splatting/output/solid_red_ball", "/home/makramchahine/repos/gaussian-splatting/output/solid_blue_ball"])
+
+        path3 = os.path.join(object_path3,
+                            "point_cloud",
+                            "iteration_" + str(30000),
+                            "point_cloud.ply")
+        
+        paths = [path, path2, path3] if add_second_ball else [path, path2]
+
+        for i, p in enumerate(paths):
             print(p)
             if p is None:
                 continue
@@ -258,48 +274,33 @@ class GaussianModel:
                 rots[:, idx] = np.asarray(plydata.elements[0][attr_name])
 
 
-            def rotate_around_vector(xyz, vector, angle):
-                # https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle
-                vector = vector / np.linalg.norm(vector)
-                ux, uy, uz = vector
-                c = np.cos(angle)
-                s = np.sin(angle)
-                R = np.array([[c + ux**2 * (1 - c), ux * uy * (1 - c) - uz * s, ux * uz * (1 - c) + uy * s],
-                            [uy * ux * (1 - c) + uz * s, c + uy**2 * (1 - c), uy * uz * (1 - c) - ux * s],
-                            [uz * ux * (1 - c) - uy * s, uz * uy * (1 - c) + ux * s, c + uz**2 * (1 - c)]])
-                return xyz @ R.transpose()
-
-            def translate(xyz, vector):
-                return xyz + vector
-            
             # xy plane is UP_VECTOR
             # take projection of long forward vector onto xy plane to calculate forward vector
             # calculate orthogonol vector to long forward vector and UP_VECTOR to calculate right vector
 
             if i == 0:
-                # vector = np.array([0.35803405629105667, 0.9315585717873832, -0.06332647049396699])
-                # vector = np.array([ 0.35803406, -0.92733208, -0.108935  ])
-                # vector = np.array([ 0.93155857,  0.362683  , -0.025684  ])
-                # vector = np.array([ 1, 0, 0])
-                # UP_VECTOR = np.array([-0.9273320764708398, 0.36268300133732523, 0.09228358732315443])
-                
-                # UP_VECTOR = np.array([ 0.93149278,  0.36375419, -0.00202001]) # original [0] long? --- now its just bad
-                # UP_VECTOR = np.array([-0.00083638, -0.00147918,  0.00043396])
-                # UP_VECTOR = np.array([-0.00083638, -0.00147918,  0.00043396])
-                # UP_VECTOR = np.array([-0.92733208,  0.362683,    0.09228359]) # iffy, [2] long
-                # UP_VECTOR = np.array([-0.92937615,  0.36207712,  0.07183407]) # iffygood?; [0] long
                 UP_VECTOR = np.array([-0.928382,  0.362077,  0.083703]) # ; [0] base
                 xyz = rotate_around_vector(xyz, UP_VECTOR, rotation_theta)
-                # rotate along y axis
-                # rot = build_rotation(np.pi, 0, 0)
-                # xyz = xyz @ rot.transpose()
-                # xyz, features_dc, features_extra, opacities, scales, rots = cull_features(xyz, features_dc, features_extra, opacities, scales, rots)
 
-            if i == 1:
-                import math
-                # xyz = xyz / 4
-                # scales = scales * 1.5 #math.log10(4) # guess and checked
-                print(xyz.mean(axis=0))
+            # i = 1; primary ball stays at origin
+            if i == 2:
+                """
+                [[0.35803405629105667, 0.9315585717873832, -0.06332647049396699],
+                [-0.9273320764708398, 0.36268300133732523, 0.09228358732315443],
+                [-0.10893500118902552, -0.025684000280340846, -0.9937170108464213]]
+                """
+                # UP_VECTOR = np.array([-0.928382,  0.362077,  0.083703])
+                RIGHT_VECTOR = np.array([0.35803405629105667, 0.9315585717873832, -0.06332647049396699])
+                UP_VECTOR = np.array([-1, 0, 0])
+                FORWARD_VECTOR = np.array([-0.10893500118902552, -0.025684000280340846, -0.9937170108464213])
+
+                if "solid_blue_ball" in path2:
+                    sideways_offset = -sideways_offset
+
+                # xyz = move_in_direction(xyz, UP_VECTOR, 0.5)
+                xyz = move_in_direction(xyz, FORWARD_VECTOR, 0.2)
+                xyz = move_in_direction(xyz, RIGHT_VECTOR, sideways_offset)
+
             print("Loaded {} points from {}".format(xyz.shape[0], p))
             xyz_list.append(xyz)
             features_dc_list.append(features_dc)

@@ -152,6 +152,17 @@ def generate_one_naive_camera_path(save_path, color):
     with open(f"{save_path}/colors.txt", 'w') as f:
         f.write(str(color))
 
+def rotate_around_vector(xyz, vector, angle):
+    # https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle
+    vector = vector / np.linalg.norm(vector)
+    ux, uy, uz = vector
+    c = np.cos(angle)
+    s = np.sin(angle)
+    R = np.array([[c + ux**2 * (1 - c), ux * uy * (1 - c) - uz * s, ux * uz * (1 - c) + uy * s],
+                [uy * ux * (1 - c) + uz * s, c + uy**2 * (1 - c), uy * uz * (1 - c) - ux * s],
+                [uz * ux * (1 - c) - uy * s, uz * uy * (1 - c) + ux * s, c + uz**2 * (1 - c)]])
+    return xyz @ R.transpose()
+
 def generate_one_pybullet_camera_path(run_path):
     save_list = []
     start_dict = get_start_camera()
@@ -170,7 +181,7 @@ def generate_one_pybullet_camera_path(run_path):
     SCALING_FACTOR = 2.5
     # read timestepwise_displacement.csv using numpy
     timestepwise_displacement = np.loadtxt(os.path.join(base_path, run, "timestepwise_displacement.csv"), delimiter=",")
-    pos = np.loadtxt(os.path.join(base_path, run, "pos.csv"), delimiter=",")
+    pos = np.loadtxt(os.path.join(base_path, run, "sim_pos.csv"), delimiter=",")
     
     # ? Move forward/backwards for randomization
     start_dict, _ = move_forward(start_dict, 3.5 - (start_dist * SCALING_FACTOR), np.array([0, 0, 0, 0]))
@@ -178,17 +189,47 @@ def generate_one_pybullet_camera_path(run_path):
     start_dict, _ = rise_relative_to_camera(start_dict, height_offset * SCALING_FACTOR, np.array([0, 0, 0, 0]))
     # active_height_offset = height_offset
 
+    rotation_axis = np.array([-0.928382,  0.362077,  0.083703]) # ; [0] base
+    # rotation_axis = -1 * np.array([ 0.92193783, -0.37936969, -0.07816191])
+    rotation_theta = random.random() * 2 * np.pi
+    start_dict['position'] = rotate_around_vector(start_dict['position'], rotation_axis, rotation_theta).tolist()
+    start_dict, _ = rotate_camera_dict_about_up_direction(start_dict, rotation_theta, np.array([0, 0, 0, 0]))
+
+    with open(os.path.join(run_path, "rand_theta.txt"), "w") as f:
+        f.write(str(rotation_theta))
+
     save_list.append(start_dict)
 
     for displacement in timestepwise_displacement:
+        modified_yaw = displacement[3] * 1.2
+        modified_rise = displacement[2] * 1.08
         start_dict, _ = move_forward(start_dict, displacement[0] * SCALING_FACTOR, np.array([0, 0, 0, 0]))
         start_dict, _ = move_sideways(start_dict, displacement[1] * SCALING_FACTOR, np.array([0, 0, 0, 0]))
-        start_dict, _ = rise_relative_to_camera(start_dict, displacement[2] * SCALING_FACTOR, np.array([0, 0, 0, 0]))
-        start_dict, _ = rotate_camera_dict_about_up_direction(start_dict, displacement[3], np.array([0, 0, 0, 0]))
+        start_dict, _ = rise_relative_to_camera(start_dict, modified_rise * SCALING_FACTOR, np.array([0, 0, 0, 0]))
+        start_dict, _ = rotate_camera_dict_about_up_direction(start_dict, modified_yaw, np.array([0, 0, 0, 0]))
         save_list.append(start_dict)
 
     with open(f"{run_path}/path.json", 'w') as outfile:
         json.dump(save_list, outfile)
+
+    import matplotlib.pyplot as plt
+
+    # Extract x, y positions from the save_list
+    x_positions = [camera_dict['position'][0] for camera_dict in save_list]
+    y_positions = [camera_dict['position'][1] for camera_dict in save_list]
+
+    # Create a plot of x, y positions
+    plt.figure(figsize=(10, 6))
+    plt.plot(x_positions, y_positions, marker='o')
+    plt.title('Camera Path')
+    plt.xlabel('X Position')
+    plt.ylabel('Y Position')
+    plt.grid(True)
+    plt.axis('equal')
+
+    # Save the figure
+    plt.savefig(f"{run_path}/camera_path.png")
+    plt.close()
 
 mode = "pybullet"
 
@@ -204,7 +245,7 @@ if __name__ == "__main__":
         for i, color in enumerate(colors):
             generate_one_naive_camera_path(f"{base_dir}/path_{i}", color)
     elif mode == "pybullet":
-        base_path = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d2_smoothyaw_300"
+        base_path = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d6_ss2_16_1_20hzf_td"
 
         for run in os.listdir(base_path):
             if not os.path.isdir(os.path.join(base_path, run)):

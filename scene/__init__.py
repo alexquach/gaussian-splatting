@@ -22,7 +22,7 @@ class Scene:
 
     gaussians : GaussianModel
 
-    def __init__(self, args : ModelParams, gaussians : GaussianModel, load_iteration=None, shuffle=True, resolution_scales=[1.0], object_path=None, rotation_theta=0.0):
+    def __init__(self, args : ModelParams, gaussians : GaussianModel, load_iteration=None, shuffle=True, resolution_scales=[1.0], object_path=None, rotation_theta=0.0, add_second_ball=False, second_color="R", sideways_offset=0.0):
         """b
         :param path: Path to colmap scene main folder.
         """
@@ -84,7 +84,10 @@ class Scene:
                                                            "point_cloud",
                                                            "iteration_" + str(self.loaded_iter),
                                                            "point_cloud.ply"),        
-                                    rotation_theta)
+                                    rotation_theta,
+                                    add_second_ball,
+                                    second_color,
+                                    sideways_offset)
         else:
             self.gaussians.create_from_pcd(scene_info.point_cloud, self.cameras_extent)
 

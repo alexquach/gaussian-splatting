@@ -41,14 +41,13 @@ from drone_multimodal.utils.model_utils import load_model_from_weights, generate
 from drone_multimodal.keras_models import IMAGE_SHAPE
 from drone_multimodal.preprocess.process_data_util import resize_and_crop
 import importlib  
-from gym_pybullet_drones.examples.simulator import Simulator
-
-CLOSED_LOOP_NUM_FRAMES = 120
+from gym_pybullet_drones.examples.simulator_eval import EvalSimulator as Simulator
 
 COLOR_MAP = {
     "R": "/home/makramchahine/repos/gaussian-splatting/output/solid_red_ball",
     "B": "/home/makramchahine/repos/gaussian-splatting/output/solid_blue_ball",
 }
+PYBULLET_TO_GS_SCALING_FACTOR = 2.5
 
 pybullet_inference = False
 
@@ -140,13 +139,26 @@ def closed_loop_render_set(model_path, name, iteration, views, gaussians, pipeli
         view = camera_from_dict(camera_dict)
 
 
-def dynamic_closed_loop_render_set(model_path, name, iteration, views, gaussians, pipeline, background, custom_camera_path=None, closed_loop_save_path=None, normalize_path=None, params_path=None, checkpoint_path=None, object_color=None, use_dynamic=False):
+def generate_init_conditions(object_color, pybullet_sideways_offset=0):
+    """Shared between training and CL inference"""
+    start_H = 0.1 + random.choice([0, 1])
+    # start_H = 0.1 + random.uniform(0, 1)
+    target_Hs = [0.1 + 0.5]
+    Theta = 0 #random.random() * 2 * np.pi
+    Theta_offset = random.uniform(0.175 * np.pi, -0.175 * np.pi) #random.choice([0.175 * np.pi, -0.175 * np.pi])
+    rel_obj = [(random.uniform(1, 2), 0)]
+
+    pybullet_sideways_offset = pybullet_sideways_offset if object_color == "R" else -pybullet_sideways_offset
+    rel_obj.append((rel_obj[0][0] - 0.2 / PYBULLET_TO_GS_SCALING_FACTOR, pybullet_sideways_offset))
+
+    return start_H, target_Hs, Theta, Theta_offset, rel_obj
+
+
+def dynamic_closed_loop_render_set(gaussians, pipeline, background, start_H, target_Hs, Theta, Theta_offset, rel_obj, closed_loop_save_path=None, normalize_path=None, params_path=None, checkpoint_path=None, object_colors=None, use_dynamic=False, sideways_offset=0):
     assert closed_loop_save_path is not None
     render_path = closed_loop_save_path
     makedirs(render_path, exist_ok=True)
     makedirs(os.path.join(render_path, "pics0"), exist_ok=True)
-    # makedirs(os.path.join(render_path, "recon0"), exist_ok=True)
-    # makedirs(os.path.join(render_path, "network_inputs"), exist_ok=True)
     pybullet_path = os.path.join(render_path, "pybullet_pics0")
 
     print(f"params_path: {params_path}")
@@ -164,24 +176,24 @@ def dynamic_closed_loop_render_set(model_path, name, iteration, views, gaussians
     print('Loaded Model')
 
     # ! Generate random dimensions
-    random_dist = random.uniform(1, 2)
-    # random_height_offset = random.uniform(0.05, 0.25)
-    random_yaw = random.uniform(0.175 * np.pi, -0.175 * np.pi)
-    sim = Simulator([object_color], [(random_dist, 0)], render_path, theta_offset=random_yaw)
+    forward_dist = rel_obj[0][0]
+
+    record_hz = 4
+    CLOSED_LOOP_NUM_FRAMES = int(2 * 240.0 * record_hz / 8.0)
+    sim = Simulator(object_colors, rel_obj, render_path, start_H, target_Hs, Theta, Theta_offset, record_hz)
     sim.setup_simulation()
     height_offset = sim.start_H - 0.1 - 0.5
-    SCALING_FACTOR = 2.5
 
     # init stabilization
     vel_cmd = np.array([0, 0, 0, 0])
     sim.vel_cmd_world = vel_cmd
-    _, rgb = sim.dynamic_step_simulation(vel_cmd)
+    _, rgb, finished = sim.dynamic_step_simulation(vel_cmd)
     rgb = rgb[None,:,:,0:3]
 
     camera_dict = get_start_camera()
-    camera_dict, _ = move_forward(camera_dict, 3.5 - (random_dist * SCALING_FACTOR), np.array([0, 0, 0, 0]))
-    camera_dict, _ = rise_relative_to_camera(camera_dict, height_offset * SCALING_FACTOR, np.array([0, 0, 0, 0]))
-    camera_dict, _ = rotate_camera_dict_about_up_direction(camera_dict, random_yaw, np.array([0, 0, 0, 0]))
+    camera_dict, _ = move_forward(camera_dict, 3.5 - (forward_dist * PYBULLET_TO_GS_SCALING_FACTOR), np.array([0, 0, 0, 0]))
+    camera_dict, _ = rise_relative_to_camera(camera_dict, height_offset * PYBULLET_TO_GS_SCALING_FACTOR, np.array([0, 0, 0, 0]))
+    camera_dict, _ = rotate_camera_dict_about_up_direction(camera_dict, Theta_offset, np.array([0, 0, 0, 0]))
     view = camera_from_dict(camera_dict)
 
     unnormalized_vel_cmds = []
@@ -202,80 +214,67 @@ def dynamic_closed_loop_render_set(model_path, name, iteration, views, gaussians
 
         # Get velocity labels from network inference
         img = img[None,:,:,0:3]
-        # print(f"GS Image Mean: {np.mean(img)}, Image Variance: {np.var(img)}")
-        # print(f"Pybullet Image Mean: {np.mean(rgb)}, Image Variance: {np.var(rgb)}")
-        # print(f"Pybullet image type: {rgb.dtype}, GS image type: {img.dtype}")
         input = copy.deepcopy(rgb if pybullet_inference else img)
         # plt.imsave(os.path.join(render_path, "network_inputs", f"img_{idx}.png"), input[0])
-        inputs = [input, *hiddens]
+        # inputs = [input, *hiddens]
+        # inputs = [input, np.array(0.375 * 5).reshape(-1, 1), *hiddens]
+        inputs = [input, np.array(0.25 * 5).reshape(-1, 1), *hiddens]
         out = single_step_model.predict(inputs)
         unnormalized_vel_cmds.append(out[0][0])
-        if normalize_path is not None:
-            out[0][0] = out[0][0] * np_std + np_mean
+        # if normalize_path is not None:
+        #     out[0][0] = out[0][0] * np_std + np_mean
         vel_cmd = out[0][0]  # shape: 1 x 8
         hiddens = out[1:]
 
         # Put into simulator
-        _, rgb = sim.dynamic_step_simulation(vel_cmd)
+        _, rgb, finished = sim.dynamic_step_simulation(vel_cmd)
+        if finished:
+            break
         rgb = rgb[None,:,:,0:3]
 
         # move camera according to velocity commands
         displacement = sim.get_latest_displacement()
-        camera_dict, _ = move_forward(camera_dict, displacement[0] * SCALING_FACTOR, np.array([0, 0, 0, 0]))
-        camera_dict, _ = move_sideways(camera_dict, displacement[1] * SCALING_FACTOR, np.array([0, 0, 0, 0]))
-        camera_dict, _ = rise_relative_to_camera(camera_dict, displacement[2] * SCALING_FACTOR, np.array([0, 0, 0, 0]))
+        camera_dict, _ = move_forward(camera_dict, displacement[0] * PYBULLET_TO_GS_SCALING_FACTOR, np.array([0, 0, 0, 0]))
+        camera_dict, _ = move_sideways(camera_dict, displacement[1] * PYBULLET_TO_GS_SCALING_FACTOR, np.array([0, 0, 0, 0]))
+        camera_dict, _ = rise_relative_to_camera(camera_dict, displacement[2] * PYBULLET_TO_GS_SCALING_FACTOR, np.array([0, 0, 0, 0]))
         camera_dict, _ = rotate_camera_dict_about_up_direction(camera_dict, displacement[3], np.array([0, 0, 0, 0]))
-
+        
         view = camera_from_dict(camera_dict)
 
+    print(f"sim.window_outcomes: {sim.window_outcomes}")
     sim.export_plots()
     np.savetxt(os.path.join(render_path, "vel_cmds_unnorm.csv"), np.array(unnormalized_vel_cmds), delimiter=",")
 
 
-def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, custom_camera_path : str, object_color : str, rotation_theta: float = 0.0, closed_loop_save_path: str = None, normalize_path: str = None, params_path: str = None, checkpoint_path: str = None, use_dynamic: bool = False):
+def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, custom_camera_paths : str, object_color : str, rotation_theta: float = 0.0, closed_loop_save_paths: str = None, normalize_path: str = None, params_paths: str = None, checkpoint_paths: str = None, use_dynamic: bool = False):
     object_path = COLOR_MAP[object_color]
     
+    print("Before torch grad")
     with torch.no_grad():
         gaussians = GaussianModel(dataset.sh_degree)
-        scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False, object_path=object_path, rotation_theta=rotation_theta)
+        add_second_ball = use_dynamic
+        second_color = random.choice(["R", "B"])
+        sideways_offset = random.uniform(2.5, 3)
+        scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False, object_path=object_path, rotation_theta=rotation_theta, add_second_ball=add_second_ball, second_color=second_color, sideways_offset=sideways_offset)
 
         bg_color = [1,1,1] if dataset.white_background else [0, 0, 0]
         background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
 
         if use_dynamic:
-            dynamic_closed_loop_render_set(dataset.model_path, "closed_loop", scene.loaded_iter, None, gaussians, pipeline, background, custom_camera_path, closed_loop_save_path, normalize_path, params_path, checkpoint_path, object_color, use_dynamic)
-        elif closed_loop_save_path is not None:
-            closed_loop_render_set(dataset.model_path, "closed_loop", scene.loaded_iter, None, gaussians, pipeline, background, custom_camera_path, closed_loop_save_path, normalize_path, params_path, checkpoint_path)
-        elif custom_camera_path is not None:
-            if not skip_train:
+            start_H, target_Hs, Theta, Theta_offset, rel_obj = generate_init_conditions(object_color, sideways_offset / PYBULLET_TO_GS_SCALING_FACTOR)
+            for closed_loop_save_path, params_path, checkpoint_path in tqdm(zip(closed_loop_save_paths, params_paths, checkpoint_paths), desc="Closed loop rendering progress"):
+                dynamic_closed_loop_render_set(gaussians, pipeline, background, start_H, target_Hs, Theta, Theta_offset, rel_obj, closed_loop_save_path, normalize_path, params_path, checkpoint_path, [object_color, second_color], use_dynamic, sideways_offset)
+        elif closed_loop_save_paths is not None:
+            closed_loop_render_set(dataset.model_path, "closed_loop", scene.loaded_iter, None, gaussians, pipeline, background, custom_camera_paths, closed_loop_save_path, normalize_path, params_path, checkpoint_paths)
+        elif custom_camera_paths is not None:
+            for custom_camera_path in tqdm(custom_camera_paths):
                 render_set(dataset.model_path, "custom_train", scene.loaded_iter, parse_custom_cameras(custom_camera_path), gaussians, pipeline, background, custom_camera_path)
         else:
             if not skip_train:
-                render_set(dataset.model_path, "train", scene.loaded_iter, scene.getTrainCameras(), gaussians, pipeline, background, custom_camera_path)
+                render_set(dataset.model_path, "train", scene.loaded_iter, scene.getTrainCameras(), gaussians, pipeline, background, custom_camera_paths)
 
             if not skip_test:
                 render_set(dataset.model_path, "test", scene.loaded_iter, scene.getTestCameras(), gaussians, pipeline, background)
-
-# closed_loop_eval = True
-# if closed_loop_eval:
-#     # normalize_path = '/home/makramchahine/repos/drone_multimodal/clean_train_h0f_hr_300/mean_std.csv'
-#     normalize_path = '/home/makramchahine/repos/drone_multimodal/clean_train_d0_300/mean_std.csv'
-#     # runner_checkpoint_path = "/home/makramchahine/repos/drone_multimodal/runner_models/filtered_g1_full_smoothest_300_og_1200sf/val/model-ctrnn_wiredcfccell_seq-64_lr-0.000100_epoch-1115_val-loss:0.0002_train-loss:0.0006_mse:0.0006_2023:10:05:22:55:55.hdf5"
-#     # runner_checkpoint_path = "/home/makramchahine/repos/drone_multimodal/runner_models/filtered_d0_300_og_600sf/val/model-ctrnn_wiredcfccell_seq-64_lr-0.000100_epoch-598_val-loss:0.0084_train-loss:0.0121_mse:0.0121_2023:10:11:19:50:51.hdf5"
-#     # runner_checkpoint_path = "/home/makramchahine/repos/drone_multimodal/runner_models/filtered_d0_300_og_600sf/recurrent/model-ctrnn_wiredcfccell_seq-64_lr-0.000100_epoch-100_val-loss:0.0437_train-loss:0.0728_mse:0.0728_2023:10:11:19:50:51.hdf5"
-#     # runner_checkpoint_path = "/home/makramchahine/repos/drone_multimodal/runner_models/filtered_d0_300_og_1200sf/val/model-ctrnn_wiredcfccell_seq-64_lr-0.000100_epoch-1189_val-loss:0.0061_train-loss:0.0062_mse:0.0062_2023:10:11:19:54:39.hdf5"
-#     # runner_checkpoint_path = "/home/makramchahine/repos/drone_multimodal/runner_models/filtered_g1_xyz_300_og_1200sf/val/model-ctrnn_wiredcfccell_seq-64_lr-0.000100_epoch-1195_val-loss:0.0027_train-loss:0.0023_mse:0.0023_2023:10:11:23:12:35.hdf5"
-#     # runner_checkpoint_path = "/home/makramchahine/repos/drone_multimodal/runner_models/filtered_g1_xyz_300_og_1200sf/recurrent/model-ctrnn_wiredcfccell_seq-64_lr-0.000100_epoch-100_val-loss:0.0516_train-loss:0.0688_mse:0.0688_2023:10:11:23:12:35.hdf5"
-#     # runner_checkpoint_path = "/home/makramchahine/repos/drone_multimodal/runner_models/filtered_d0_filtered_300_og_600sf/val/model-ctrnn_wiredcfccell_seq-64_lr-0.000100_epoch-587_val-loss:0.0093_train-loss:0.0117_mse:0.0117_2023:10:12:22:23:30.hdf5"
-#     runner_checkpoint_path = "/home/makramchahine/repos/drone_multimodal/runner_models/filtered_d0_pybullet_300_og_600sf/val/model-ctrnn_wiredcfccell_seq-64_lr-0.000100_epoch-590_val-loss:0.0073_train-loss:0.0091_mse:0.0091_2023:10:12:17:52:27.hdf5"
-#     # runner_checkpoint_path = "/home/makramchahine/repos/drone_multimodal/runner_models/filtered_h0f_hr_300_og_600sf/recurrent/model-ctrnn_wiredcfccell_seq-64_lr-0.000100_epoch-100_val-loss:0.0483_train-loss:0.0751_mse:0.0751_2023:09:11:17:35:29.hdf5"
-#     base_runner_folder = os.path.dirname(runner_checkpoint_path)
-#     params_path = os.path.join(base_runner_folder, "params.json")
-# else:
-#     normalize_path = None
-#     base_runner_folder = None
-#     runner_checkpoint_path = None
-#     params_path = None
 
 
 if __name__ == "__main__":
@@ -288,37 +287,40 @@ if __name__ == "__main__":
     parser.add_argument("--skip_test", action="store_true")
     parser.add_argument("--object_color", default="something", type=str)
     parser.add_argument("--quiet", action="store_true")
-    parser.add_argument("--custom_camera_path", default=None, type=str)
-    parser.add_argument("--closed_loop_save_path", default=None, type=str)
+    parser.add_argument("--custom_camera_paths", nargs='*', default=None, type=str)
+    parser.add_argument("--closed_loop_save_paths", nargs='*', default=None, type=str)
     parser.add_argument("--normalize_path", default=None, type=str)
-    parser.add_argument("--params_path", default=None, type=str)
-    parser.add_argument("--checkpoint_path", default=None, type=str)
+    parser.add_argument("--params_paths", nargs='*', default=None, type=str)
+    parser.add_argument("--checkpoint_paths", nargs='*', default=None, type=str)
     parser.add_argument("--use_dynamic", action="store_true", default=False)
     args = get_combined_args(parser)
     print("Rendering " + args.model_path)
 
-    if not "custom_camera_path" in args:
-        args.custom_camera_path = None
-    if not "closed_loop_save_path" in args:
-        args.closed_loop_save_path = None
+    if not "custom_camera_paths" in args:
+        args.custom_camera_paths = None
+    if not "closed_loop_save_paths" in args:
+        args.closed_loop_save_paths = None
     if not "normalize_path" in args:
         args.normalize_path = None
-    if not "params_path" in args:
-        args.params_path = None
-    if not "checkpoint_path" in args:
-        args.checkpoint_path = None
+    if not "params_paths" in args:
+        args.params_paths = None
+    if not "checkpoint_paths" in args:
+        args.checkpoint_paths = None
 
-    rand_theta = random.uniform(0, 2 * np.pi)
+    if args.custom_camera_paths is not None:
+        rand_theta = 0
+    else: 
+        rand_theta = random.uniform(0, 2 * np.pi)
     
     # Initialize system state (RNG)
     # safe_state(args.quiet)
 
     print(f"use_dynamic: {args.use_dynamic}")
 
-    if args.custom_camera_path is not None:
-        base_dir = os.path.dirname(args.custom_camera_path)
-        with open(os.path.join(base_dir, "rand_theta.txt"), "w") as f:
-            f.write(str(rand_theta))
+    # if args.custom_camera_path is not None:
+    #     base_dir = os.path.dirname(args.custom_camera_path)
+    #     with open(os.path.join(base_dir, "rand_theta.txt"), "w") as f:
+    #         f.write(str(rand_theta))
 
 
-    render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.skip_train, args.skip_test, args.custom_camera_path, args.object_color, rotation_theta=rand_theta, closed_loop_save_path = args.closed_loop_save_path, normalize_path=args.normalize_path, params_path=args.params_path, checkpoint_path=args.checkpoint_path, use_dynamic=args.use_dynamic)
+    render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.skip_train, args.skip_test, args.custom_camera_paths, args.object_color, rotation_theta=rand_theta, closed_loop_save_paths = args.closed_loop_save_paths, normalize_path=args.normalize_path, params_paths=args.params_paths, checkpoint_paths=args.checkpoint_paths, use_dynamic=args.use_dynamic)
