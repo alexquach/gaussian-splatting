@@ -201,8 +201,9 @@ def generate_one_pybullet_camera_path(run_path):
     save_list.append(start_dict)
 
     for displacement in timestepwise_displacement:
-        modified_yaw = displacement[3] * 1.2
-        modified_rise = displacement[2] * 1.08
+        # 3 hz = 1.2, 1.08
+        modified_yaw = displacement[3]
+        modified_rise = displacement[2]
         start_dict, _ = move_forward(start_dict, displacement[0] * SCALING_FACTOR, np.array([0, 0, 0, 0]))
         start_dict, _ = move_sideways(start_dict, displacement[1] * SCALING_FACTOR, np.array([0, 0, 0, 0]))
         start_dict, _ = rise_relative_to_camera(start_dict, modified_rise * SCALING_FACTOR, np.array([0, 0, 0, 0]))
@@ -245,7 +246,7 @@ if __name__ == "__main__":
         for i, color in enumerate(colors):
             generate_one_naive_camera_path(f"{base_dir}/path_{i}", color)
     elif mode == "pybullet":
-        base_path = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d6_ss2_16_1_20hzf_td"
+        base_path = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d6_ss2_600_1_10hzf_td"
 
         for run in os.listdir(base_path):
             if not os.path.isdir(os.path.join(base_path, run)):

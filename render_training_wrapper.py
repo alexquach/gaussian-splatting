@@ -24,7 +24,7 @@ m_path = "/home/makramchahine/repos/gaussian-splatting/output/holodeck2"
 s_path = "/home/makramchahine/repos/nerf/data/nerfstudio/custom/holodeck2/keyframes"
 
 # Run the script multiple times
-base_dir = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d6_ss2_16_1_20hzf_td"
+base_dir = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d6_ss2_600_1_10hzf_td"
 
 red_folders = []
 blue_folders = []

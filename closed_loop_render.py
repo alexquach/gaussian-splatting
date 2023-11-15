@@ -24,25 +24,20 @@ COLOR_MAP = {
 M_PATH = "/home/makramchahine/repos/gaussian-splatting/output/holodeck2"
 S_PATH = "/home/makramchahine/repos/nerf/data/nerfstudio/custom/holodeck2/keyframes"
 
-DEFAULT_DURATION_SEC = 15
 combined_video_filename = "combined_video.mp4"
 video_filename = "rand.mp4"
 
 # ! Adjustable Params
 USE_DYNAMIC = True
-# MAIN_OUTPUT_FOLDER = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/cl_d2_smoothyaw_300_ogf_300sf_multi_fs"
-# MAIN_CHECKPOINT_FOLDER = "/home/makramchahine/repos/drone_multimodal/runner_models/filtered_d2_smoothyaw_300_ogf_300sf"
-# MAIN_OUTPUT_FOLDER = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/cl_d5_corner_nonorm_300_srf_200sf_multi_le_8hz_irreg"
-# MAIN_CHECKPOINT_FOLDER = "/home/makramchahine/repos/drone_multimodal/runner_models/filtered_d5_corner_nonorm_300_srf_200sf_irreg1"
-tag = "d6_nonorm_ss2_450_38hzf_td5_srf_200sf_irreg2"
-MAIN_OUTPUT_FOLDER = f"/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/cl_{tag}_multi_le_4hz_debugs"
+tag = "d6_nonorm_ss2_600_1_10hzf_td_srf_200sf_irreg2_32"
+RECORD_HZ = 8
+MAIN_OUTPUT_FOLDER = f"/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/cl_{tag}_multi_le_{RECORD_HZ}hz"
 MAIN_CHECKPOINT_FOLDER = f"/home/makramchahine/repos/drone_multimodal/runner_models/filtered_{tag}"
-# MAIN_CHECKPOINT_FOLDER = "/home/makramchahine/repos/drone_multimodal/runner_models/filtered_d6_nonorm_ss2_600_3hzf_srf_300sf"
 NORMALIZE_PATH = '/home/makramchahine/repos/drone_multimodal/clean_train_d3_300/mean_std.csv'
 SAMPLES_PER_MODEL = 10
-RUN_VAL = True
+RUN_VAL = False
 USE_EPOCH_FILTER = True
-EPOCH_FILTER = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]
+EPOCH_FILTER = [200]# [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]
 
 def run_GS_render(color, run_absolute_paths, params_paths, checkpoint_paths):
     cmd = [
@@ -50,6 +45,7 @@ def run_GS_render(color, run_absolute_paths, params_paths, checkpoint_paths):
         "render.py",
         "-m", M_PATH,
         "-s", S_PATH,
+        "--record_hz", str(RECORD_HZ),
         "--object_color", color,
         "--normalize_path", NORMALIZE_PATH,
         "--params_paths", *params_paths,
