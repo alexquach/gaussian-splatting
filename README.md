@@ -91,6 +91,16 @@ SET DISTUTILS_USE_SDK=1 # Windows only
 conda env create --file environment.yml
 conda activate gaussian_splatting
 ```
+Alternative: 
+```
+   conda create -n gaussian_splatting python=3.8
+   conda activate gaussian_splatting
+   pip install torch==2.0.0+cu118 torchvision==0.15.0+cu118 torchaudio==2.0.0+cu118 -f https://download.pytorch.org/whl/torch_stable.html\n
+   nvcc --version
+   nvidia-smi
+   pip install -e ./submodules/diff-gaussian-rasterization && pip install -e ./submodules/simple-knn
+```
+
 Please note that this process assumes that you have CUDA SDK **11** installed, not **12**. For modifications, see below.
 
 Tip: Downloading packages and creating a new environment with Conda can require a significant amount of disk space. By default, Conda will use the main system hard drive. You can avoid this by specifying a different package download location and an environment on a different drive:
