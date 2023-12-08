@@ -6,38 +6,41 @@ import glob
 import re
 import itertools
 import math
-from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import joblib
 import subprocess
 import matplotlib.pyplot as plt
+import argparse
 plt.rcParams.update({'figure.facecolor':'white'})
 
 from render_folder import images_to_video, combine_videos
 
-COLOR_MAP = {
-    "R": "/home/makramchahine/repos/gaussian-splatting/output/solid_red_ball",
-    "B": "/home/makramchahine/repos/gaussian-splatting/output/solid_blue_ball",
-}
+from env_configs import ENV_CONFIGS
 
 # Paths and parameters
-M_PATH = "/home/makramchahine/repos/gaussian-splatting/output/holodeck2"
-S_PATH = "/home/makramchahine/repos/nerf/data/nerfstudio/custom/holodeck2/keyframes"
+env_name = "holodeck"
+M_PATH = ENV_CONFIGS[env_name]["m_path"]
+S_PATH = ENV_CONFIGS[env_name]["s_path"]
 
 combined_video_filename = "combined_video.mp4"
 video_filename = "rand.mp4"
 
 # ! Adjustable Params
 USE_DYNAMIC = True
-tag = "d6_nonorm_ss2_600_1_10hzf_td_srf_200sf_irreg2_32"
-RECORD_HZ = 8
-MAIN_OUTPUT_FOLDER = f"/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/cl_{tag}_multi_le_{RECORD_HZ}hz"
-MAIN_CHECKPOINT_FOLDER = f"/home/makramchahine/repos/drone_multimodal/runner_models/filtered_{tag}"
+# tag = "d0_pybullet_300_ogf_600sf"
+# tag = "d6_nonorm_ss2_600_1_10hzf_bm_td_srf_300sf_irreg2_64"
+# tag = "d6_nonorm_ss2_600_1_10hzf_bm_pfff_td_srf_300sf_irreg2_64_hyp"
+# tag = "d6_nonorm_ss2_200_9hzf_bm_px_td_nlsp_gn_nt_srf_150sf_irreg2_64_hyp_cfc"
+# # tag = "d6_nonorm_ss2_600_3hzf_bm_px_td_nlsp_srf_300sf_irreg2_64"
+# RECORD_HZ = 9
+# # MAIN_OUTPUT_FOLDER = f"/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/cl_{tag}_mleno_{RECORD_HZ}hz_hypn"
+# MAIN_OUTPUT_FOLDER = f"/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/cl_{tag}_mleno_{RECORD_HZ}hz_05sf"
+# MAIN_CHECKPOINT_FOLDER = f"/home/makramchahine/repos/drone_multimodal/runner_models/filtered_{tag}"
 NORMALIZE_PATH = '/home/makramchahine/repos/drone_multimodal/clean_train_d3_300/mean_std.csv'
 SAMPLES_PER_MODEL = 10
-RUN_VAL = False
+RUN_VAL = True
 USE_EPOCH_FILTER = True
-EPOCH_FILTER = [200]# [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]
+EPOCH_FILTER = [] #[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]
 
 def run_GS_render(color, run_absolute_paths, params_paths, checkpoint_paths):
     cmd = [
@@ -58,6 +61,18 @@ def run_GS_render(color, run_absolute_paths, params_paths, checkpoint_paths):
 
 
 def main():
+    parser = argparse.ArgumentParser(description='Run script with different configurations.')
+    parser.add_argument('--tag', type=str, help='Tag for the run')
+    parser.add_argument('--record_hz', type=int, help='Record HZ')
+    args = parser.parse_args()
+
+    # Use the arguments in your script
+    global tag, RECORD_HZ, MAIN_OUTPUT_FOLDER, MAIN_CHECKPOINT_FOLDER
+    tag = args.tag
+    RECORD_HZ = args.record_hz
+    MAIN_OUTPUT_FOLDER = f"/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/cl_{tag}_mleno_{RECORD_HZ}hz_05sf_debugstraight"
+    MAIN_CHECKPOINT_FOLDER = f"/home/makramchahine/repos/drone_multimodal/runner_models/filtered_{tag}"
+
     # os.makedirs(MAIN_OUTPUT_FOLDER, exist_ok=True)
     evaluator = Evaluator(MAIN_OUTPUT_FOLDER, MAIN_CHECKPOINT_FOLDER, multi=False)
 
@@ -138,9 +153,11 @@ class Evaluator():
                 else:
                     concurrent_params_path.append(os.path.join(self.main_checkpoint_folder, 'val', 'params.json'))
                     concurrent_output_folder_full_path.append(os.path.join(self.main_output_folder, 'val', f'run_{i}'))
-            self.concurrent_checkpoint_paths.append(concurrent_checkpoint_path)
-            self.concurrent_params_paths.append(concurrent_params_path)
-            self.concurrent_output_folder_full_paths.append(concurrent_output_folder_full_path)
+
+            if len(concurrent_checkpoint_path) > 0:
+                self.concurrent_checkpoint_paths.append(concurrent_checkpoint_path)
+                self.concurrent_params_paths.append(concurrent_params_path)
+                self.concurrent_output_folder_full_paths.append(concurrent_output_folder_full_path)
 
         self.append_initial_conditions()
 

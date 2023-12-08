@@ -2,11 +2,7 @@ import os
 import subprocess
 from tqdm import tqdm
 
-COLOR_MAP = {
-    "R": "/home/makramchahine/repos/gaussian-splatting/output/solid_red_ball",
-    "B": "/home/makramchahine/repos/gaussian-splatting/output/solid_blue_ball",
-    "G": "/home/makramchahine/repos/gaussian-splatting/output/solid_blue_ball",
-}
+from env_configs import ENV_CONFIGS
 
 def run_script(m_path, s_path, custom_camera_paths, color):
     cmd = [
@@ -20,11 +16,11 @@ def run_script(m_path, s_path, custom_camera_paths, color):
     subprocess.run(cmd)
 
 # Paths and parameters
-m_path = "/home/makramchahine/repos/gaussian-splatting/output/holodeck2"
-s_path = "/home/makramchahine/repos/nerf/data/nerfstudio/custom/holodeck2/keyframes"
+env_name = "holodeck"
+m_path = ENV_CONFIGS[env_name]["m_path"]
+s_path = ENV_CONFIGS[env_name]["s_path"]
 
-# Run the script multiple times
-base_dir = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d6_ss2_600_1_10hzf_td"
+base_dir = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d6_ss2_400_3hzf_bm_px_td_nlsp_gn_nt"
 
 red_folders = []
 blue_folders = []
@@ -41,17 +37,3 @@ for folder in sorted(os.listdir(base_dir)):
 
 run_script(m_path, s_path, red_folders, "R")
 run_script(m_path, s_path, blue_folders, "B")
-
-# for folder in tqdm(sorted(os.listdir(base_dir))):
-#     if not os.path.isdir(os.path.join(base_dir, folder)):
-#         continue
-    
-#     camera = os.path.join(base_dir, folder, "path.json")
-#     with open(os.path.join(base_dir, folder, "colors.txt"), "r") as f:
-#         color = f.readline().strip()
-    
-#     pics_dir = os.path.join(base_dir, folder, "pics0")
-#     if not os.listdir(pics_dir):
-#         run_script(m_path, s_path, camera, color)
-
-

@@ -3,24 +3,8 @@ import numpy as np
 import os
 import random
 
-from camera_custom_utils import parse_keycamera, process_keycamera_to_W2C, replace_w2c, get_yaw_diff_relative_to_origin, rise_relative_to_camera, rotate_about_forward_direction, rotate_camera_dict_about_up_direction, dist_from_origin, move_forward, move_sideways
-    
-NUM_SAMPLES = 300
-camera_json_path = "/home/makramchahine/repos/gaussian-splatting/output/holodeck2/cameras.json"
-keycamera_file_path = "./camera_assets/key_cameras_4"
-base_dir = f"./camera_assets/train_g1_xyzs_{NUM_SAMPLES}"
-debug_dir = "./camera_assets/debug"
-
-def get_reference_camera_structure(camera_json_path=camera_json_path):
-    with open(camera_json_path) as f:
-        cameras = json.load(f)
-    return cameras
-
-def get_keycameras(file_path=keycamera_file_path):
-    parsed_data = parse_keycamera(file_path)
-    keycameras = [process_keycamera_to_W2C(keycamera) for keycamera in parsed_data]
-
-    return keycameras
+from camera_custom_utils import get_start_camera, get_yaw_diff_relative_to_origin, rise_relative_to_camera, rotate_about_forward_direction, rotate_camera_dict_about_up_direction, dist_from_origin, move_forward, move_sideways
+from env_configs import ENV_CONFIGS
 
 MAX_FRAMES = 200
 CRITICAL_DIST = 1.5
@@ -38,32 +22,6 @@ YAW_START_SLOWDOWN = 0.015 * np.pi
 STABILIZE_LIFT_SPEED = 0.05 / 8 * 2
 LIFT_HEIGHT_BUFFER = 0.1
 
-def get_start_camera():
-    ref_camera = get_reference_camera_structure()[185]
-    
-    new_width = 256
-    new_height = 144
-
-    # Calculate the new focal lengths based on the new dimensions
-    old_fx = ref_camera['fx']
-    old_fy = ref_camera['fy']
-    old_width = ref_camera['width']
-    old_height = ref_camera['height']
-
-    new_fx = old_fx * new_width / old_width
-    new_fy = old_fy * new_height / old_height
-
-    # Update the camera parameters
-    ref_camera['width'] = new_width
-    ref_camera['height'] = new_height
-    ref_camera['fx'] = new_fx
-    ref_camera['fy'] = new_fy
-
-    keycamera = get_keycameras()[0]
-    start_dict = replace_w2c(ref_camera, keycamera)
-    # ? Rotate camera to correct orientation in the forward axis
-    start_dict = rotate_about_forward_direction(start_dict, np.pi/2)
-    return start_dict
 
 def interpolate_speeds(dist, critical_dist, critical_dist_buffer, speed1, speed2):
     # as dist gets closer to critical_dist, speed gets closer to speed1
@@ -72,13 +30,13 @@ def interpolate_speeds(dist, critical_dist, critical_dist_buffer, speed1, speed2
 def scale_yaw_speed(yaw_speed, yaw_dist):
     return yaw_speed * np.sign(yaw_dist)
 
-def generate_one_naive_camera_path(save_path, color):
+def generate_one_naive_camera_path(save_path, color, env_name):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     
     save_list = []
     deltas = []
-    start_dict = get_start_camera()
+    start_dict = get_start_camera(ENV_CONFIGS[env_name]["keycamera_path"])
 
     # ? Move forward/backwards for randomization
     random_dist = random.uniform(-1, 1)
@@ -163,9 +121,9 @@ def rotate_around_vector(xyz, vector, angle):
                 [uz * ux * (1 - c) - uy * s, uz * uy * (1 - c) + ux * s, c + uz**2 * (1 - c)]])
     return xyz @ R.transpose()
 
-def generate_one_pybullet_camera_path(run_path):
+def generate_one_pybullet_camera_path(run_path, env_name):
     save_list = []
-    start_dict = get_start_camera()
+    start_dict = get_start_camera(ENV_CONFIGS[env_name]["keycamera_path"])
 
     with open(os.path.join(base_path, run, "start_dist.txt"), "r") as f:
         start_dist = float(f.readline().strip())
@@ -232,23 +190,11 @@ def generate_one_pybullet_camera_path(run_path):
     plt.savefig(f"{run_path}/camera_path.png")
     plt.close()
 
-mode = "pybullet"
-
 if __name__ == "__main__":
-    if mode == "debug":
-        color = "R"
-        generate_one_naive_camera_path(f"{debug_dir}", color)
-    elif mode == "naive":
-        # Create an array of length NUM_SAMPLES, where half the entries are "B" and half are "R"
-        colors = ["B"] * (NUM_SAMPLES // 2) + ["R"] * (NUM_SAMPLES // 2)
-        random.shuffle(colors)
-        
-        for i, color in enumerate(colors):
-            generate_one_naive_camera_path(f"{base_dir}/path_{i}", color)
-    elif mode == "pybullet":
-        base_path = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d6_ss2_600_1_10hzf_td"
+    NUM_SAMPLES = 300
+    base_path = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d6_ss2_400_3hzf_bm_px_td_nlsp_gn_nt"
 
-        for run in os.listdir(base_path):
-            if not os.path.isdir(os.path.join(base_path, run)):
-                continue
-            generate_one_pybullet_camera_path(f"{base_path}/{run}")
+    for run in os.listdir(base_path):
+        if not os.path.isdir(os.path.join(base_path, run)):
+            continue
+        generate_one_pybullet_camera_path(f"{base_path}/{run}", env_name="holodeck")

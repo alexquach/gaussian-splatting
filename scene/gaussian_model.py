@@ -23,6 +23,8 @@ from utils.graphics_utils import BasicPointCloud
 from utils.general_utils import strip_symmetric, build_scaling_rotation
 from scene.gaussian_model_utils import rotate_around_vector, move_in_direction
 
+from camera_custom_utils import get_start_camera
+
 class GaussianModel:
 
     def setup_functions(self):
@@ -214,7 +216,22 @@ class GaussianModel:
         optimizable_tensors = self.replace_tensor_to_optimizer(opacities_new, "opacity")
         self._opacity = optimizable_tensors["opacity"]
 
-    def load_ply(self, path, path2=None, rotation_theta=0.0, add_second_ball=False, second_color="R", sideways_offset=0.0):
+    def convert_offsets_to_absolute(self, camera_dict, gs_offsets):
+        position = camera_dict['position']
+        UP_VECTOR = np.array(camera_dict['rotation'][1])
+        RIGHT_VECTOR = np.array(camera_dict['rotation'][0])
+        FORWARD_VECTOR = np.array(camera_dict['rotation'][2])
+
+        gs_positions = []
+        for i, offset in enumerate(gs_offsets):
+            if i == 0:
+                gs_positions.append((offset[0]) * FORWARD_VECTOR + offset[1] * RIGHT_VECTOR + offset[2] * UP_VECTOR)
+            else:
+                gs_positions.append(position + (offset[0]) * FORWARD_VECTOR + offset[1] * RIGHT_VECTOR + offset[2] * UP_VECTOR)
+
+        return gs_positions
+
+    def load_ply(self, paths, rotation_theta=0.0, gs_offsets=None, keycamera_path=None, train_mode=False):
         xyz_list = []
         features_dc_list = []
         features_rest_list = []
@@ -222,25 +239,16 @@ class GaussianModel:
         scale_list = []
         rotation_list = []
 
-        COLOR_MAP = {
-            "R": "/home/makramchahine/repos/gaussian-splatting/output/solid_red_ball",
-            "B": "/home/makramchahine/repos/gaussian-splatting/output/solid_blue_ball",
-        }
-        object_path3 = COLOR_MAP[second_color]
-        # object_path3 = random.choice(["/home/makramchahine/repos/gaussian-splatting/output/solid_red_ball", "/home/makramchahine/repos/gaussian-splatting/output/solid_blue_ball"])
+        camera_dict = get_start_camera(keycamera_path)
+        # keycamera = get_keycameras(keycamera_path)[0]
+        gs_positions = self.convert_offsets_to_absolute(camera_dict, gs_offsets)
+        UP_VECTOR = np.array(camera_dict['rotation'][1])
 
-        path3 = os.path.join(object_path3,
-                            "point_cloud",
-                            "iteration_" + str(30000),
-                            "point_cloud.ply")
-        
-        paths = [path, path2, path3] if add_second_ball else [path, path2]
-
-        for i, p in enumerate(paths):
-            print(p)
-            if p is None:
+        for i, (path, gs_position) in enumerate(zip(paths, gs_positions)):
+            print(path)
+            if path is None:
                 continue
-            plydata = PlyData.read(p)
+            plydata = PlyData.read(path)
 
             xyz = np.stack((np.asarray(plydata.elements[0]["x"]),
                             np.asarray(plydata.elements[0]["y"]),
@@ -277,31 +285,38 @@ class GaussianModel:
             # xy plane is UP_VECTOR
             # take projection of long forward vector onto xy plane to calculate forward vector
             # calculate orthogonol vector to long forward vector and UP_VECTOR to calculate right vector
-
             if i == 0:
-                UP_VECTOR = np.array([-0.928382,  0.362077,  0.083703]) # ; [0] base
+                # UP_VECTOR = np.array([-0.928382,  0.362077,  0.083703]) # ; [0] base
                 xyz = rotate_around_vector(xyz, UP_VECTOR, rotation_theta)
+            if not train_mode:
+                xyz = xyz + gs_position
 
-            # i = 1; primary ball stays at origin
-            if i == 2:
-                """
-                [[0.35803405629105667, 0.9315585717873832, -0.06332647049396699],
-                [-0.9273320764708398, 0.36268300133732523, 0.09228358732315443],
-                [-0.10893500118902552, -0.025684000280340846, -0.9937170108464213]]
-                """
-                # UP_VECTOR = np.array([-0.928382,  0.362077,  0.083703])
-                RIGHT_VECTOR = np.array([0.35803405629105667, 0.9315585717873832, -0.06332647049396699])
-                UP_VECTOR = np.array([-1, 0, 0])
-                FORWARD_VECTOR = np.array([-0.10893500118902552, -0.025684000280340846, -0.9937170108464213])
+            # if i == 1:
+                # xyz = xyz + [-4.4752010569616365, 0.4978229481137085, 2.381869993731324]
+                # xyz = xyz + [-4.935772591318996, 2.09761354574954, 6.124672979884792]
+                # xyz = xyz + [-4.7, 1.25, 4]
 
-                if "solid_blue_ball" in path2:
-                    sideways_offset = -sideways_offset
+                # xyz = xyz + [-1.0259308327567134, 0.45864276478028465, 0.4162266095684606] 
 
-                # xyz = move_in_direction(xyz, UP_VECTOR, 0.5)
-                xyz = move_in_direction(xyz, FORWARD_VECTOR, 0.2)
-                xyz = move_in_direction(xyz, RIGHT_VECTOR, sideways_offset)
+            # if i == 2:
+            #     """
+            #     [[0.35803405629105667, 0.9315585717873832, -0.06332647049396699],
+            #     [-0.9273320764708398, 0.36268300133732523, 0.09228358732315443],
+            #     [-0.10893500118902552, -0.025684000280340846, -0.9937170108464213]]
+            #     """
+            #     # UP_VECTOR = np.array([-0.928382,  0.362077,  0.083703])
+            #     RIGHT_VECTOR = np.array([0.35803405629105667, 0.9315585717873832, -0.06332647049396699])
+            #     UP_VECTOR = np.array([-1, 0, 0])
+            #     FORWARD_VECTOR = np.array([-0.10893500118902552, -0.025684000280340846, -0.9937170108464213])
 
-            print("Loaded {} points from {}".format(xyz.shape[0], p))
+            #     if "solid_blue_ball" in path2:
+            #         sideways_offset = -sideways_offset
+
+            #     # xyz = move_in_direction(xyz, UP_VECTOR, 0.5)
+            #     xyz = move_in_direction(xyz, FORWARD_VECTOR, 0.2)
+            #     xyz = move_in_direction(xyz, RIGHT_VECTOR, sideways_offset)
+
+            print("Loaded {} points from {}".format(xyz.shape[0], path))
             xyz_list.append(xyz)
             features_dc_list.append(features_dc)
             features_rest_list.append(features_extra)

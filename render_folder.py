@@ -12,10 +12,14 @@ def images_to_video(image_folder, video_output, DUAL):
         rows = 1
         cols = 2
 
-        os.mkdir(os.path.join(image_folder, "labeled_pics"))
+        os.makedirs(os.path.join(image_folder, "labeled_pics"), exist_ok=True)
         for i, (img_path, img_path2) in enumerate(zip(sorted(os.listdir(os.path.join(image_folder, "pics0"))), sorted(os.listdir(os.path.join(image_folder, "pybullet_pics0"))))):
             img = Image.open(os.path.join(image_folder, "pics0", img_path))
             img2 = Image.open(os.path.join(image_folder, "pybullet_pics0", img_path2))
+        # for i, (img_path, img_path2) in enumerate(zip(sorted(os.listdir(os.path.join(image_folder, "gt"))), sorted(os.listdir(os.path.join(image_folder, "renders", "pics0"))))):
+        #     img = Image.open(os.path.join(image_folder, "gt", img_path))
+        #     img2 = Image.open(os.path.join(image_folder, "renders", "pics0", img_path2))
+        #     img2 = img2.transpose(Image.FLIP_TOP_BOTTOM)
             width, height = img.size
             output_image = Image.new('RGB', (width * cols, height * rows), color=(255, 255, 255))
         
@@ -34,7 +38,12 @@ def images_to_video(image_folder, video_output, DUAL):
         os.system(f"ffmpeg -framerate 30 -pattern_type glob -i '{image_folder}/labeled_pics/0*.png' -c:v libx264 -pix_fmt yuv420p {video_output} > /dev/null 2>&1")
         os.system(f"rm -rf {image_folder}/labeled_pics")
     else:
-        command = "ffmpeg -framerate 30 -i '{}/pics0/%05d.png' -c:v libx264 -pix_fmt yuv420p {}".format(image_folder, video_output)
+        for count, filename in enumerate(sorted(os.listdir(os.path.join(image_folder, "pybullet_pics0")))):
+            dst = str(count).zfill(5) + ".png"
+            src = os.path.join(image_folder, "pybullet_pics0", filename)
+            dst = os.path.join(image_folder, "pybullet_pics0", dst)
+            os.rename(src, dst)
+        command = "ffmpeg -framerate 30 -i '{}/pybullet_pics0/%05d.png' -c:v libx264 -pix_fmt yuv420p {}".format(image_folder, video_output)
         subprocess.call(command, shell=True)
 
 def combine_videos(eval_dir, video_filename="video.mp4", combined_video_filename="combined_video.mp4"):
@@ -55,7 +64,17 @@ if __name__ == "__main__":
     video_name = "single_video.mp4" if not DUAL else "video.mp4"
     combined_video_filename="single_combined_video.mp4" if not DUAL else "combined_video.mp4"
 
+    # # ! Single Folder
+    # image_folder = os.path.join(directory_folder, directory_folder)
+    # video_output = os.path.join(directory_folder, directory_folder, video_name)
+    # print(image_folder)
+    # images_to_video(image_folder, video_output, DUAL)
+
+    # ! Folder of folders
     for image_folder_name in sorted(os.listdir(directory_folder))[:20]:
+        if os.path.isfile(os.path.join(directory_folder, image_folder_name)):
+            continue
+
         image_folder = os.path.join(directory_folder, image_folder_name)
         video_output = os.path.join(directory_folder, image_folder_name, video_name)
         print(image_folder)

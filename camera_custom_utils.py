@@ -1,4 +1,15 @@
 import numpy as np
+import json
+
+from env_configs import TEMPLATE_CAMERA_JSON_PATH
+
+RENDER_WIDTH = 256
+RENDER_HEIGHT = 144
+
+def get_template_camera_structure(camera_json_path=TEMPLATE_CAMERA_JSON_PATH):
+    with open(camera_json_path) as f:
+        cameras = json.load(f)
+    return cameras
 
 
 def get_pos_rot(camera_dict):
@@ -58,11 +69,43 @@ def parse_keycamera(file_path):
         parsed_data.append(line_dict)
     return parsed_data
 
+def get_keycameras(file_path):
+    parsed_data = parse_keycamera(file_path)
+    keycameras = [process_keycamera_to_W2C(keycamera) for keycamera in parsed_data]
+
+    return keycameras
+
 def replace_w2c(camera_dict, keycamera_dict):
     new_dict = camera_dict.copy()
     new_dict['position'] = keycamera_dict['position']
     new_dict['rotation'] = keycamera_dict['rotation']
     return new_dict
+
+def get_start_camera(keycamera_path):
+    ref_camera = get_template_camera_structure()[185]
+
+    # Calculate the new focal lengths based on the new dimensions
+    old_fx = ref_camera['fx']
+    old_fy = ref_camera['fy']
+    old_width = ref_camera['width']
+    old_height = ref_camera['height']
+
+    new_fx = old_fx * RENDER_WIDTH / old_width
+    new_fy = old_fy * RENDER_HEIGHT / old_height
+
+    # Update the camera parameters
+    ref_camera['width'] = RENDER_WIDTH
+    ref_camera['height'] = RENDER_HEIGHT
+    ref_camera['fx'] = new_fx
+    ref_camera['fy'] = new_fy
+
+    # ! Set position and rotation from keycamera
+    keycamera = get_keycameras(keycamera_path)[0]
+    start_dict = replace_w2c(ref_camera, keycamera)
+
+    # ? Rotate camera to correct orientation in the forward axis -- artifact of camera
+    start_dict = rotate_about_forward_direction(start_dict, np.pi/2)
+    return start_dict
 
 # ! Camera manipulation
 
