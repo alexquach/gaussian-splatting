@@ -14,7 +14,6 @@ import numpy as np
 from utils.general_utils import inverse_sigmoid, get_expon_lr_func, build_rotation
 from torch import nn
 import os
-import random
 from utils.system_utils import mkdir_p
 from plyfile import PlyData, PlyElement
 from utils.sh_utils import RGB2SH
@@ -24,6 +23,7 @@ from utils.general_utils import strip_symmetric, build_scaling_rotation
 from scene.gaussian_model_utils import rotate_around_vector, move_in_direction
 
 from camera_custom_utils import get_start_camera
+from camera_custom_utils import move_forward, rotate_camera_dict_about_up_direction, rise_relative_to_camera, move_sideways
 
 class GaussianModel:
 
@@ -217,6 +217,9 @@ class GaussianModel:
         self._opacity = optimizable_tensors["opacity"]
 
     def convert_offsets_to_absolute(self, camera_dict, gs_offsets):
+        """
+        Adds the camera position to the gs_offsets to get the absolute positions of the ground splats
+        """
         position = camera_dict['position']
         UP_VECTOR = np.array(camera_dict['rotation'][1])
         RIGHT_VECTOR = np.array(camera_dict['rotation'][0])
@@ -240,6 +243,8 @@ class GaussianModel:
         rotation_list = []
 
         camera_dict = get_start_camera(keycamera_path)
+        camera_dict, _ = move_forward(camera_dict, 3, np.array([0, 0, 0, 0]))
+        camera_dict, _ = rotate_camera_dict_about_up_direction(camera_dict, -0.05, np.array([0, 0, 0, 0]))
         # keycamera = get_keycameras(keycamera_path)[0]
         gs_positions = self.convert_offsets_to_absolute(camera_dict, gs_offsets)
         UP_VECTOR = np.array(camera_dict['rotation'][1])
@@ -285,6 +290,12 @@ class GaussianModel:
             # xy plane is UP_VECTOR
             # take projection of long forward vector onto xy plane to calculate forward vector
             # calculate orthogonol vector to long forward vector and UP_VECTOR to calculate right vector
+            if i == 1:
+                scale = 1
+                scale = (1.0 / 2.0)
+                # scale = (1.0 / 2.575)
+                xyz *= scale
+                scales /= scale ** (1/3)
             if i == 0:
                 # UP_VECTOR = np.array([-0.928382,  0.362077,  0.083703]) # ; [0] base
                 xyz = rotate_around_vector(xyz, UP_VECTOR, rotation_theta)

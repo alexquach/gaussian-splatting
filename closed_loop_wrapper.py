@@ -1,5 +1,16 @@
 import subprocess
 
+# bm = bimodal
+# px = fixed pybullet issue
+# td = 
+# nlsp = nonlinear speed
+# gn = gaussian noise
+# nt = no forward velocity while turning
+# srf = 
+# irreg2 = support for variable timestep-cfc
+# 64 = batch size
+# hyp = hyperparametertuned
+
 def gen_tag(hz=110, pybullet=False, model_type="cfc"):
     if hz == 110:
         traj_hz = "600_1_10hzf"

@@ -25,6 +25,7 @@ from gaussian_renderer import GaussianModel
 import random
 import numpy as np
 import pandas as pd
+import math
 
 import copy
 import matplotlib.pyplot as plt
@@ -38,10 +39,12 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(SCRIPT_DIR, ".."))
 sys.path.append(os.path.join(SCRIPT_DIR, "..", "gym-pybullet-drones"))
 sys.path.append(os.path.join(SCRIPT_DIR, "..", "gym-pybullet-drones", "gym_pybullet_drones", "examples"))
-from gym_pybullet_drones.examples.simulator_eval import EvalSimulator as Simulator
+from gym_pybullet_drones.examples.simulator_eval import EvalSimulator
 
 
 pybullet_inference = False
+vanish_mode = False
+NUM_BALLS = 2
 
 def render_set(model_path, name, iteration, views, gaussians, pipeline, background, custom_camera_path=None):
     if custom_camera_path is None:
@@ -93,10 +96,12 @@ def dynamic_closed_loop_render_set(gaussians, pipeline, background, sim_dict, cl
 
     # ! Setup Simulator
     forward_dist = rel_obj[0][0]
-    CLOSED_LOOP_NUM_FRAMES = int(2 * 240.0 * record_hz / 8.0) * 2
-    sim = Simulator(object_colors, rel_obj, render_path, start_H, target_Hs, Theta, Theta_offset, record_hz)
+    sim = EvalSimulator(object_colors, rel_obj, render_path, start_H, target_Hs, Theta, Theta_offset, record_hz, vanish_mode)
     sim.setup_simulation()
     height_offset = sim.start_H - 0.1 - 0.5
+    num_objects = len(sim.ordered_objs)
+    print(f"num_objects: {num_objects}")
+    CLOSED_LOOP_NUM_FRAMES = int(num_objects * 240.0 * record_hz / 8.0) * 2 
 
     # init stabilization
     vel_cmd = np.array([0, 0, 0, 0])
@@ -105,9 +110,10 @@ def dynamic_closed_loop_render_set(gaussians, pipeline, background, sim_dict, cl
     pybullet_img = pybullet_img[None,:,:,0:3]
 
     camera_dict = get_start_camera(keycamera_path)
-    old_offset = random.uniform(-1.7, 0.9)
+    # old_offset =  #random.uniform(-0.75, 0.75) # TODO: FIX
     # camera_dict, _ = move_forward(camera_dict, 3.5 - (forward_dist * PYBULLET_TO_GS_SCALING_FACTOR), np.array([0, 0, 0, 0]))
-    camera_dict, _ = move_forward(camera_dict, old_offset, np.array([0, 0, 0, 0]))
+    camera_dict, _ = move_forward(camera_dict, 3, np.array([0, 0, 0, 0]))
+    camera_dict, _ = rotate_camera_dict_about_up_direction(camera_dict, -0.05, np.array([0, 0, 0, 0]))
     camera_dict, _ = rise_relative_to_camera(camera_dict, height_offset * PYBULLET_TO_GS_SCALING_FACTOR, np.array([0, 0, 0, 0]))
     camera_dict, _ = rotate_camera_dict_about_up_direction(camera_dict, Theta_offset, np.array([0, 0, 0, 0]))
     view = camera_from_dict(camera_dict)
@@ -117,12 +123,16 @@ def dynamic_closed_loop_render_set(gaussians, pipeline, background, sim_dict, cl
     if is_lstm:
         CLOSED_LOOP_NUM_FRAMES *= 2
     for idx in tqdm(range(CLOSED_LOOP_NUM_FRAMES)):
-        rendering = render(view, gaussians, pipeline, background)["render"]
-        rendering = torch.flip(rendering, [1]) # flip across the x axis to match the original image
-        torchvision.utils.save_image(rendering, os.path.join(render_path, "pics0", '{0:05d}'.format(idx) + ".png"))
-        gs_img = transform_gs_img_to_network_input(rendering)
+        if pybullet_inference:
+            input = copy.deepcopy(pybullet_img)
+        else:
+            rendering = render(view, gaussians, pipeline, background)["render"]
+            rendering = torch.flip(rendering, [1]) # flip across the x axis to match the original image
+            torchvision.utils.save_image(rendering, os.path.join(render_path, "pics0", '{0:05d}'.format(idx) + ".png"))
+            gs_img = transform_gs_img_to_network_input(rendering)
+            
+            input = copy.deepcopy(gs_img)
 
-        input = copy.deepcopy(pybullet_img if pybullet_inference else gs_img)
         if is_lstm:
             inputs = [input, *hiddens]
         else:
@@ -135,8 +145,6 @@ def dynamic_closed_loop_render_set(gaussians, pipeline, background, sim_dict, cl
         hiddens = out[1:]
 
         vel_cmd[0] = vel_cmd[0] * 0.5
-
-        vel_cmd = [0.01, 0, 0, 0]
 
         # Put into simulator
         _, pybullet_img, finished = sim.dynamic_step_simulation(vel_cmd)
@@ -231,19 +239,43 @@ if __name__ == "__main__":
     env_name = "holodeck" # colosseum, holodeck
     if env_name == "holodeck":
         rand_theta = random.uniform(0, 2 * np.pi)
+        rand_theta = 0
     else: 
         rand_theta = 0
     
     # Initialize system state (RNG)
     # safe_state(args.quiet)
 
+
+    pybullet_rand_forward = random.uniform(1.5, 2)
     keycamera_path = ENV_CONFIGS[env_name]["keycamera_path"]
     PYBULLET_TO_GS_SCALING_FACTOR = ENV_CONFIGS[env_name]["PYBULLET_TO_GS_SCALING_FACTOR"]
     if args.use_dynamic:
-        object_colors = [random.choice(["R", "B"]) for _ in range(2)]
+        object_colors = [random.choice(["R", "B"]) for _ in range(NUM_BALLS)]
+        pybullet_rand_forward = random.uniform(1.5, 2)
+        gs_rand_forward = pybullet_rand_forward * PYBULLET_TO_GS_SCALING_FACTOR
         # gs_offsets = [[0, 0, -1], [2, 0, 0], [1.9, -3 if object_colors[0] == "R" else 3, 0]] # forward, right, up
-        rand_forward = random.uniform(3.5, 4.5)
-        gs_offsets = [[0, 0, 0], [rand_forward, 0, 0], [rand_forward * 0.9, -3 if object_colors[0] == "R" else 3, 0]] # forward, right, up
+        gs_offsets_from_camera = [[0, 0, 0], [gs_rand_forward, 0, 0], [gs_rand_forward * 0.9, -3 if object_colors[0] == "R" else 3, 0]] # forward, right, up
+        
+        # gs_offsets_from_camera = [[0, 0, 0]] # forward, right, up
+        # cur_point = (0, 0)
+        # cur_direction = 0 
+
+        # for object_color in object_colors:
+        #     pybullet_rand_forward = random.uniform(1.5, 2)
+        #     gs_rand_forward = pybullet_rand_forward * PYBULLET_TO_GS_SCALING_FACTOR
+            
+        #     target_loc = (cur_point[0] + (gs_rand_forward + 0.5) * math.cos(cur_direction), cur_point[1] + (gs_rand_forward + 0.5) * math.sin(cur_direction), 0)
+        #     cur_point = (cur_point[0] + gs_rand_forward * math.cos(cur_direction), cur_point[1] + gs_rand_forward * math.sin(cur_direction), 0)
+        #     gs_offsets_from_camera.append(target_loc)
+
+        #     if object_color == 'R':
+        #         cur_direction += math.pi / 2
+        #     elif object_color == 'B':
+        #         cur_direction += -math.pi / 2
+        
+        
+        # gs_offsets_from_camera = [[0, 0, 0], [gs_rand_forward, 0, 0], [gs_rand_forward * 0.9, -3 if object_colors[0] == "R" else 3, 0]] # forward, right, up
         # for _ in range(10):
         #     gs_sideways_offset = random.uniform(*GS_SIDEWAYS_OFFSET_RAND_VALUES)
         #     pybullet_sideways_offset = gs_sideways_offset / SECOND_BALL_SCALING_FACTOR
@@ -251,7 +283,7 @@ if __name__ == "__main__":
         object_paths = [ENV_CONFIGS[env_name]["ply_path"], *color_paths]
     else:
         object_colors = [args.object_color]
-        gs_offsets = [[0, 0, 0], [0, 0, 0]]
+        gs_offsets_from_camera = [[0, 0, 0], [0, 0, 0]]
         color_paths = [COLOR_MAP[color] for color in object_colors]
         object_paths = [ENV_CONFIGS[env_name]["ply_path"], *color_paths]
 
@@ -272,7 +304,8 @@ if __name__ == "__main__":
         "object_paths": object_paths,
         "object_colors": object_colors,
         "keycamera_path": keycamera_path,
-        "gs_offsets": gs_offsets,
+        "gs_offsets": gs_offsets_from_camera,
+        "pybullet_rand_forward": pybullet_rand_forward,
         "PYBULLET_TO_GS_SCALING_FACTOR": PYBULLET_TO_GS_SCALING_FACTOR,
     }
 

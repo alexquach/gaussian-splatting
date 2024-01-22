@@ -16,8 +16,8 @@ def get_pos_rot(camera_dict):
     return np.array(camera_dict['position'].copy()), np.array(camera_dict['rotation'].copy())
 
 # ! Keycamera processing
-MANUAL_ADJUSTMENT = np.array([-0.035, 0.01, 0])
-# MANUAL_ADJUSTMENT = np.array([0, 0, 0])
+# MANUAL_ADJUSTMENT = np.array([-0.035, 0.01, 0])
+MANUAL_ADJUSTMENT = np.array([0, 0, 0])
 def process_keycamera_to_W2C(keycamera_dict):
     origin = np.array(keycamera_dict['origin'])
     up = np.array(keycamera_dict['up'])

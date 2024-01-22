@@ -216,10 +216,12 @@ class Evaluator():
 
     def calculate_metrics(self):
         eval_map = {}
+        first_ball_eval_map = {}
         for different_checkpoint_model in os.listdir(self.main_output_folder):
             if not os.path.isdir(os.path.join(self.main_output_folder, different_checkpoint_model)):
                 continue
             runs_history = []
+            first_ball_runs_history = []
             for image_folder_name in sorted(os.listdir(os.path.join(self.main_output_folder, different_checkpoint_model))):
                 if not os.path.isdir(os.path.join(self.main_output_folder, different_checkpoint_model, image_folder_name)):
                     continue
@@ -227,16 +229,26 @@ class Evaluator():
 
                 predictions_labels = np.genfromtxt(result_txt_path, delimiter=',', dtype=str, skip_header=0)
                 runs_history.append(np.mean([row[0] == row[1] for row in predictions_labels]))
+                first_ball_runs_history.append(predictions_labels[0][0] == predictions_labels[0][1])
             eval_map[different_checkpoint_model] = np.mean(runs_history)
+            first_ball_eval_map[different_checkpoint_model] = np.mean(first_ball_runs_history)
             print(f"model accuracy: {eval_map[different_checkpoint_model]}")
+            print(f"first ball accuracy: {first_ball_eval_map[different_checkpoint_model]}")
 
         print(eval_map)
         values_w_epochs = [(int(''.join(filter(str.isdigit, folder_tag))), value) for folder_tag, value in eval_map.items() if any(char.isdigit() for char in folder_tag)]
         values_wo_epochs = [(folder_tag, value) for folder_tag, value in eval_map.items() if not any(char.isdigit() for char in folder_tag)]
-        epochs, values = zip(*sorted(values_w_epochs, key=lambda x: x[0]))
-        plt.scatter(epochs, values)
+        first_ball_values_w_epochs = [(int(''.join(filter(str.isdigit, folder_tag))), value) for folder_tag, value in first_ball_eval_map.items() if any(char.isdigit() for char in folder_tag)]
+        first_ball_values_wo_epochs = [(folder_tag, value) for folder_tag, value in first_ball_eval_map.items() if not any(char.isdigit() for char in folder_tag)]
+        
+        if values_w_epochs:
+            epochs, values = zip(*sorted(values_w_epochs, key=lambda x: x[0]))
+            first_ball_epochs, first_ball_values = zip(*sorted(first_ball_values_w_epochs, key=lambda x: x[0]))
+            plt.scatter(epochs, values)
+            plt.scatter(first_ball_epochs, first_ball_values, color='red')
 
         plt.scatter([0] * len(values_wo_epochs), [value for _, value in values_wo_epochs])
+        plt.scatter([0] * len(first_ball_values_wo_epochs), [value for _, value in first_ball_values_wo_epochs], color='red')
         max_acc = max(eval_map.values())
         plt.ylabel(f"Accuracy (16 runs); max={max_acc:.03f}")
         plt.xlabel("Epochs")

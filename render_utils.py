@@ -15,23 +15,24 @@ from drone_multimodal.preprocess.process_data_util import resize_and_crop
 
 def generate_init_conditions(object_colors, gs_offsets, PYBULLET_TO_GS_SCALING_FACTOR):
     """Shared between training and CL inference"""
-    start_H = 0.1 + random.choice([0, 1])
+    start_H = 0.1 + 0.5 #random.choice([0, 1])
     # start_H = 0.1 + random.uniform(0, 1)
     gs_offsets_xy = np.array(gs_offsets)[:, 0:2]
     gs_offsets_z = np.array(gs_offsets)[:, 2]
-    Theta = 0 # dont need rotation in pybullet simulation
+    Theta = random.uniform(0, 2 * np.pi) # doesn't match the GS rotation, but should be fine because its arbitrary
     Theta_offset = random.uniform(0.175 * np.pi, -0.175 * np.pi) #random.choice([0.175 * np.pi, -0.175 * np.pi])
     if object_colors[0] == "R":
         Theta_offset = -abs(Theta_offset)
     else:
         Theta_offset = abs(Theta_offset)
 
+    print(f"gs_offsets_xy / PYBULLET_TO_GS_SCALING_FACTOR: {gs_offsets_xy / PYBULLET_TO_GS_SCALING_FACTOR}")
     return {
         "start_H": start_H,
         "target_Hs": 0.6 + gs_offsets_z / PYBULLET_TO_GS_SCALING_FACTOR,
         "Theta": Theta,
         "Theta_offset": Theta_offset,
-        "rel_obj": gs_offsets_xy / PYBULLET_TO_GS_SCALING_FACTOR * np.array([1, -1]),
+        "rel_obj": gs_offsets_xy / PYBULLET_TO_GS_SCALING_FACTOR * np.array([1, -1]), # y is flipped in pybullet
     }
 
 def transform_gs_img_to_network_input(rendering):
