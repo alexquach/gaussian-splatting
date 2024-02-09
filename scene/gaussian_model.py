@@ -249,6 +249,7 @@ class GaussianModel:
         gs_positions = self.convert_offsets_to_absolute(camera_dict, gs_offsets)
         UP_VECTOR = np.array(camera_dict['rotation'][1])
 
+        centering_first_ball_offset = np.array([0, 0, 0])
         for i, (path, gs_position) in enumerate(zip(paths, gs_positions)):
             print(path)
             if path is None:
@@ -291,16 +292,18 @@ class GaussianModel:
             # take projection of long forward vector onto xy plane to calculate forward vector
             # calculate orthogonol vector to long forward vector and UP_VECTOR to calculate right vector
             if i == 1:
-                scale = 1
-                scale = (1.0 / 2.0)
-                # scale = (1.0 / 2.575)
-                xyz *= scale
-                scales /= scale ** (1/3)
+                centering_first_ball_offset = gs_position.copy()
+                # scale = 1
+                # scale = (1.0 / 2.0)
+                # # scale = (1.0 / 2.575)
+                # xyz *= scale
+                # scales /= scale ** (1/3)
             if i == 0:
                 # UP_VECTOR = np.array([-0.928382,  0.362077,  0.083703]) # ; [0] base
                 xyz = rotate_around_vector(xyz, UP_VECTOR, rotation_theta)
             if not train_mode:
-                xyz = xyz + gs_position
+                xyz = xyz + gs_position - centering_first_ball_offset
+                print(f"{i}: {gs_position - centering_first_ball_offset}")
 
             # if i == 1:
                 # xyz = xyz + [-4.4752010569616365, 0.4978229481137085, 2.381869993731324]

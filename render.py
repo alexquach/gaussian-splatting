@@ -96,11 +96,10 @@ def dynamic_closed_loop_render_set(gaussians, pipeline, background, sim_dict, cl
 
     # ! Setup Simulator
     forward_dist = rel_obj[0][0]
-    sim = EvalSimulator(object_colors, rel_obj, render_path, start_H, target_Hs, Theta, Theta_offset, record_hz, vanish_mode)
+    sim = EvalSimulator(object_colors, rel_obj, render_path, start_H, target_Hs, Theta, Theta_offset, record_hz)
     sim.setup_simulation()
     height_offset = sim.start_H - 0.1 - 0.5
     num_objects = len(sim.ordered_objs)
-    print(f"num_objects: {num_objects}")
     CLOSED_LOOP_NUM_FRAMES = int(num_objects * 240.0 * record_hz / 8.0) * 2 
 
     # init stabilization
@@ -110,9 +109,11 @@ def dynamic_closed_loop_render_set(gaussians, pipeline, background, sim_dict, cl
     pybullet_img = pybullet_img[None,:,:,0:3]
 
     camera_dict = get_start_camera(keycamera_path)
+    # old_offset = random.uniform(-1.7, 0.9)
+    # camera_dict, _ = move_forward(camera_dict, old_offset, np.array([0, 0, 0, 0]))
     # old_offset =  #random.uniform(-0.75, 0.75) # TODO: FIX
-    # camera_dict, _ = move_forward(camera_dict, 3.5 - (forward_dist * PYBULLET_TO_GS_SCALING_FACTOR), np.array([0, 0, 0, 0]))
-    camera_dict, _ = move_forward(camera_dict, 3, np.array([0, 0, 0, 0]))
+    camera_dict, _ = move_forward(camera_dict, 3.5 - (forward_dist * PYBULLET_TO_GS_SCALING_FACTOR), np.array([0, 0, 0, 0]))
+    # camera_dict, _ = move_forward(camera_dict, 3, np.array([0, 0, 0, 0]))
     camera_dict, _ = rotate_camera_dict_about_up_direction(camera_dict, -0.05, np.array([0, 0, 0, 0]))
     camera_dict, _ = rise_relative_to_camera(camera_dict, height_offset * PYBULLET_TO_GS_SCALING_FACTOR, np.array([0, 0, 0, 0]))
     camera_dict, _ = rotate_camera_dict_about_up_direction(camera_dict, Theta_offset, np.array([0, 0, 0, 0]))
@@ -120,8 +121,10 @@ def dynamic_closed_loop_render_set(gaussians, pipeline, background, sim_dict, cl
 
     unnormalized_vel_cmds = []
 
-    if is_lstm:
-        CLOSED_LOOP_NUM_FRAMES *= 2
+    # if is_lstm:
+    # double all
+    CLOSED_LOOP_NUM_FRAMES *= 2
+    print(f"CLOSED_LOOP_NUM_FRAMES: {CLOSED_LOOP_NUM_FRAMES}")
     for idx in tqdm(range(CLOSED_LOOP_NUM_FRAMES)):
         if pybullet_inference:
             input = copy.deepcopy(pybullet_img)
@@ -136,7 +139,9 @@ def dynamic_closed_loop_render_set(gaussians, pipeline, background, sim_dict, cl
         if is_lstm:
             inputs = [input, *hiddens]
         else:
-            inputs = [input, np.array(1.0 / record_hz * 5).reshape(-1, 1), *hiddens]
+            # TODO: FIX THIS FIXED TIMESTEP
+            inputs = [input, np.array(1.0 / 9 * 5).reshape(-1, 1), *hiddens]
+            # inputs = [input, np.array(1.0 / record_hz * 5).reshape(-1, 1), *hiddens]
         out = single_step_model.predict(inputs)
         unnormalized_vel_cmds.append(out[0][0])
         # if normalize_path is not None:
@@ -189,8 +194,8 @@ def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParam
         # ! Closed Loop inference with dynamic interplay between GS and pybullet simulators
         if use_dynamic:
             sim_dict = generate_init_conditions(object_colors, gs_offsets[1:], PYBULLET_TO_GS_SCALING_FACTOR)
-            sim_dict['record_hz'] = inference_configs["record_hz"]
-            for closed_loop_save_path, params_path, checkpoint_path in tqdm(zip(closed_loop_save_paths, params_paths, checkpoint_paths), desc="Closed loop rendering progress"):
+            for closed_loop_save_path, params_path, checkpoint_path, record_hz in tqdm(zip(closed_loop_save_paths, params_paths, checkpoint_paths, inference_configs["record_hzs"]), desc="Closed loop rendering progress"):
+                sim_dict['record_hz'] = record_hz
                 dynamic_closed_loop_render_set(gaussians, pipeline, background, sim_dict, closed_loop_save_path, normalize_path, params_path, checkpoint_path, object_colors, keycamera_path, PYBULLET_TO_GS_SCALING_FACTOR)
         # Regular Inference with specified camera paths
         elif custom_camera_paths is not None:
@@ -211,10 +216,10 @@ if __name__ == "__main__":
     model = ModelParams(parser, sentinel=True)
     pipeline = PipelineParams(parser)
     parser.add_argument("--iteration", default=-1, type=int)
-    parser.add_argument("--record_hz", default=8, type=int)
+    parser.add_argument("--record_hzs", nargs='*', default=None, type=str)
     parser.add_argument("--skip_train", action="store_true")
     parser.add_argument("--skip_test", action="store_true")
-    parser.add_argument("--object_color", default="R", type=str)
+    parser.add_argument("--object_colors", nargs='*', default=None, type=str)
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--custom_camera_paths", nargs='*', default=None, type=str)
     parser.add_argument("--closed_loop_save_paths", nargs='*', default=None, type=str)
@@ -222,6 +227,7 @@ if __name__ == "__main__":
     parser.add_argument("--params_paths", nargs='*', default=None, type=str)
     parser.add_argument("--checkpoint_paths", nargs='*', default=None, type=str)
     parser.add_argument("--use_dynamic", action="store_true", default=False)
+    parser.add_argument("--rand_theta", type=float)
     args = get_combined_args(parser)
     print("Rendering " + args.model_path)
 
@@ -235,23 +241,27 @@ if __name__ == "__main__":
         args.params_paths = None
     if not "checkpoint_paths" in args:
         args.checkpoint_paths = None
+    if not "record_hzs" in args:
+        args.record_hzs = None
+    if not "object_colors" in args:
+        args.object_colors = None
 
     env_name = "holodeck" # colosseum, holodeck
-    if env_name == "holodeck":
-        rand_theta = random.uniform(0, 2 * np.pi)
-        rand_theta = 0
-    else: 
-        rand_theta = 0
+    rand_theta = args.rand_theta
+    # if env_name == "holodeck":
+    #     rand_theta = random.uniform(0, 2 * np.pi)
+    # else: 
+    #     rand_theta = 0
     
     # Initialize system state (RNG)
     # safe_state(args.quiet)
-
 
     pybullet_rand_forward = random.uniform(1.5, 2)
     keycamera_path = ENV_CONFIGS[env_name]["keycamera_path"]
     PYBULLET_TO_GS_SCALING_FACTOR = ENV_CONFIGS[env_name]["PYBULLET_TO_GS_SCALING_FACTOR"]
     if args.use_dynamic:
-        object_colors = [random.choice(["R", "B"]) for _ in range(NUM_BALLS)]
+        object_colors = args.object_colors
+        # object_colors = [random.choice(["R", "B"]) for _ in range(NUM_BALLS)]
         pybullet_rand_forward = random.uniform(1.5, 2)
         gs_rand_forward = pybullet_rand_forward * PYBULLET_TO_GS_SCALING_FACTOR
         # gs_offsets = [[0, 0, -1], [2, 0, 0], [1.9, -3 if object_colors[0] == "R" else 3, 0]] # forward, right, up
@@ -291,16 +301,16 @@ if __name__ == "__main__":
     print(f"custom_camera_paths: {args.custom_camera_paths}")
     print(f"rand_theta: {rand_theta}")
 
+    # print(f"args.record_hzs: {args.record_hzs}")
     inference_configs = {
         "custom_camera_paths": args.custom_camera_paths,
-        "object_color": args.object_color,
         "rotation_theta": rand_theta,
         "closed_loop_save_paths": args.closed_loop_save_paths,
         "normalize_path": args.normalize_path,
         "params_paths": args.params_paths,
         "checkpoint_paths": args.checkpoint_paths,
         "use_dynamic": args.use_dynamic,
-        "record_hz": args.record_hz,
+        "record_hzs": [int(x) for x in args.record_hzs],
         "object_paths": object_paths,
         "object_colors": object_colors,
         "keycamera_path": keycamera_path,

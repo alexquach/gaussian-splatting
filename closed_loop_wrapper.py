@@ -29,25 +29,34 @@ def gen_tag(hz=110, pybullet=False, model_type="cfc"):
 
 # Define your configurations
 configurations = [
-    # {"tag": gen_tag(3, False, "lstm"), "record_hz": 3},
-    {"tag": gen_tag(110, True, "cfc"), "record_hz": 3},
+    # {"tag": gen_tag(110, True, "cfc"), "record_hz": 3},
+    # {"tag": gen_tag(110, True, "cfc"), "record_hz": 9},
+    # {"tag": gen_tag(3, True, "cfc"), "record_hz": 3},
     # {"tag": gen_tag(9, True, "cfc"), "record_hz": 9},
+    # {"tag": gen_tag(9, True, "cfc"), "record_hz": 3},
     # {"tag": gen_tag(3, True, "lstm"), "record_hz": 3},
     # {"tag": gen_tag(9, True, "lstm"), "record_hz": 9},
+    {"tag": gen_tag(110, False, "cfc"), "record_hz": 3},
+    # {"tag": gen_tag(110, False, "cfc"), "record_hz": 9},
+    # {"tag": gen_tag(3, False, "cfc"), "record_hz": 3},
+    # {"tag": gen_tag(9, False, "cfc"), "record_hz": 9}, #this
+    # {"tag": gen_tag(9, False, "cfc"), "record_hz": 3}, #this
+    # {"tag": gen_tag(3, False, "lstm"), "record_hz": 3},
+    # {"tag": gen_tag(9, False, "lstm"), "record_hz": 9},
 ]
+print(configurations)
 
-# Loop over your configurations
-for config in configurations:
-    try:
-        # Build the command
-        command = [
-            "python",
-            "closed_loop_render.py",
-            "--tag", config["tag"],
-            "--record_hz", str(config["record_hz"]),
-        ]
+tags = [config["tag"] for config in configurations]
+record_hzs = [str(config["record_hz"]) for config in configurations]
 
-        subprocess.run(command)
-    except Exception as e:
-        print(e)
-        continue
+try: 
+    command = [
+        "python",
+        "closed_loop_render.py",
+        "--tags", *tags,
+        "--record_hzs", *record_hzs,
+    ]
+
+    subprocess.run(command)
+except Exception as e:
+    print(e)

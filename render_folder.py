@@ -3,14 +3,21 @@ import sys
 import subprocess
 from PIL import Image, ImageDraw, ImageFont 
 
+single_choice = "pybullet_pics0"
+label_new = True
+
 def images_to_video(image_folder, video_output, DUAL):
     # Ensure ffmpeg is installed
     assert subprocess.call('type ffmpeg', shell=True, 
            stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0, "ffmpeg was not found on your system; please install ffmpeg"
 
-    if DUAL:
-        rows = 1
-        cols = 2
+    if DUAL or label_new:
+        if DUAL:
+            rows = 1
+            cols = 2
+        else:
+            rows = 1
+            cols = 1
 
         os.makedirs(os.path.join(image_folder, "labeled_pics"), exist_ok=True)
         for i, (img_path, img_path2) in enumerate(zip(sorted(os.listdir(os.path.join(image_folder, "pics0"))), sorted(os.listdir(os.path.join(image_folder, "pybullet_pics0"))))):
@@ -27,7 +34,14 @@ def images_to_video(image_folder, video_output, DUAL):
             font = ImageFont.truetype("/usr/share/fonts/truetype/lato/Lato-Medium.ttf", size=20)
 
             positions = [(x, y) for x in range(0, width * cols, width) for y in range(0, height * rows, height)]
-            for image, pos in zip([img, img2], positions):
+            if DUAL:
+                imgs = [img, img2]
+            elif label_new:
+                if single_choice == "pics0":
+                    imgs = [img]
+                else:
+                    imgs = [img2]
+            for image, pos in zip(imgs, positions):
                 output_image.paste(image, pos)
 
             if i < 30:
@@ -40,10 +54,10 @@ def images_to_video(image_folder, video_output, DUAL):
     else:
         for count, filename in enumerate(sorted(os.listdir(os.path.join(image_folder, "pybullet_pics0")))):
             dst = str(count).zfill(5) + ".png"
-            src = os.path.join(image_folder, "pybullet_pics0", filename)
-            dst = os.path.join(image_folder, "pybullet_pics0", dst)
+            src = os.path.join(image_folder, single_choice, filename)
+            dst = os.path.join(image_folder, single_choice, dst)
             os.rename(src, dst)
-        command = "ffmpeg -framerate 30 -i '{}/pybullet_pics0/%05d.png' -c:v libx264 -pix_fmt yuv420p {}".format(image_folder, video_output)
+        command = "ffmpeg -framerate 30 -i '{}/{}/%05d.png' -c:v libx264 -pix_fmt yuv420p {}".format(image_folder, single_choice, video_output)
         subprocess.call(command, shell=True)
 
 def combine_videos(eval_dir, video_filename="video.mp4", combined_video_filename="combined_video.mp4"):
@@ -59,10 +73,11 @@ def combine_videos(eval_dir, video_filename="video.mp4", combined_video_filename
 
 if __name__ == "__main__":
     # Get the image folder from command line arguments
-    DUAL = True
+    DUAL = False
+    number_of_runs = 20
     directory_folder = sys.argv[1]
-    video_name = "single_video.mp4" if not DUAL else "video.mp4"
-    combined_video_filename="single_combined_video.mp4" if not DUAL else "combined_video.mp4"
+    video_name = "pyb_single_video.mp4" if not DUAL else "video.mp4"
+    combined_video_filename="pyb_single_combined_video.mp4" if not DUAL else "combined_video.mp4"
 
     # # ! Single Folder
     # image_folder = os.path.join(directory_folder, directory_folder)
@@ -71,7 +86,7 @@ if __name__ == "__main__":
     # images_to_video(image_folder, video_output, DUAL)
 
     # ! Folder of folders
-    for image_folder_name in sorted(os.listdir(directory_folder))[:20]:
+    for image_folder_name in sorted(os.listdir(directory_folder))[:number_of_runs]:
         if os.path.isfile(os.path.join(directory_folder, image_folder_name)):
             continue
 
