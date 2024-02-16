@@ -31,7 +31,7 @@ import copy
 import matplotlib.pyplot as plt
 
 from camera_generator import get_start_camera
-from camera_custom_utils import move_forward, rotate_camera_dict_about_up_direction, rise_relative_to_camera, move_sideways
+from camera_custom_utils import move_forward, rotate_camera_dict_about_up_direction, rise_relative_to_camera, move_sideways, set_position_to_origin
 from render_utils import *
 from env_configs import COLOR_MAP, ENV_CONFIGS
 
@@ -112,9 +112,10 @@ def dynamic_closed_loop_render_set(gaussians, pipeline, background, sim_dict, cl
     # old_offset = random.uniform(-1.7, 0.9)
     # camera_dict, _ = move_forward(camera_dict, old_offset, np.array([0, 0, 0, 0]))
     # old_offset =  #random.uniform(-0.75, 0.75) # TODO: FIX
-    camera_dict, _ = move_forward(camera_dict, 3.5 - (forward_dist * PYBULLET_TO_GS_SCALING_FACTOR), np.array([0, 0, 0, 0]))
-    # camera_dict, _ = move_forward(camera_dict, 3, np.array([0, 0, 0, 0]))
-    camera_dict, _ = rotate_camera_dict_about_up_direction(camera_dict, -0.05, np.array([0, 0, 0, 0]))
+    # camera_dict, _ = move_forward(camera_dict, 3.5 - (forward_dist * PYBULLET_TO_GS_SCALING_FACTOR), np.array([0, 0, 0, 0]))
+    camera_dict = set_position_to_origin(camera_dict)
+    camera_dict, _ = move_forward(camera_dict, -(forward_dist * PYBULLET_TO_GS_SCALING_FACTOR), np.array([0, 0, 0, 0]))
+    # camera_dict, _ = rotate_camera_dict_about_up_direction(camera_dict, -0.05, np.array([0, 0, 0, 0]))
     camera_dict, _ = rise_relative_to_camera(camera_dict, height_offset * PYBULLET_TO_GS_SCALING_FACTOR, np.array([0, 0, 0, 0]))
     camera_dict, _ = rotate_camera_dict_about_up_direction(camera_dict, Theta_offset, np.array([0, 0, 0, 0]))
     view = camera_from_dict(camera_dict)
@@ -228,6 +229,8 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_paths", nargs='*', default=None, type=str)
     parser.add_argument("--use_dynamic", action="store_true", default=False)
     parser.add_argument("--rand_theta", default=0, type=float)
+    parser.add_argument("--start_dist", default=None, type=float)
+    parser.add_argument("--correct_side", default=None, type=str)
     args = get_combined_args(parser)
     print("Rendering " + args.model_path)
 
@@ -248,6 +251,8 @@ if __name__ == "__main__":
 
     env_name = "holodeck" # colosseum, holodeck
     rand_theta = args.rand_theta
+    print(f"rand_theta: {rand_theta}")
+    # rand_theta = 0
     # if env_name == "holodeck":
     #     rand_theta = random.uniform(0, 2 * np.pi)
     # else: 
@@ -271,7 +276,16 @@ if __name__ == "__main__":
         object_paths = [ENV_CONFIGS[env_name]["ply_path"], *color_paths]
     else:
         object_colors = args.object_colors
-        gs_offsets_from_camera = [[0, 0, 0], [0, 0, 0]]
+        correct_side = args.correct_side
+        start_dist = args.start_dist * PYBULLET_TO_GS_SCALING_FACTOR
+
+        print(f"start_dist: {start_dist}")
+
+        ortho_dist = 0.2 * PYBULLET_TO_GS_SCALING_FACTOR
+        if correct_side == "R":
+            gs_offsets_from_camera = [[0, 0, 0], [start_dist, ortho_dist, 0], [start_dist, -ortho_dist, 0]]
+        elif correct_side == "L":
+            gs_offsets_from_camera = [[0, 0, 0], [start_dist, -ortho_dist, 0], [start_dist, ortho_dist, 0]]
         color_paths = [COLOR_MAP[color] for color in object_colors]
         object_paths = [ENV_CONFIGS[env_name]["ply_path"], *color_paths]
 

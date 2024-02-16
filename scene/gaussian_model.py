@@ -22,7 +22,7 @@ from utils.graphics_utils import BasicPointCloud
 from utils.general_utils import strip_symmetric, build_scaling_rotation
 from scene.gaussian_model_utils import rotate_around_vector, move_in_direction
 
-from camera_custom_utils import get_start_camera
+from camera_custom_utils import get_start_camera, set_position_to_origin
 from camera_custom_utils import move_forward, rotate_camera_dict_about_up_direction, rise_relative_to_camera, move_sideways
 
 class GaussianModel:
@@ -243,8 +243,9 @@ class GaussianModel:
         rotation_list = []
 
         camera_dict = get_start_camera(keycamera_path)
-        camera_dict, _ = move_forward(camera_dict, 3, np.array([0, 0, 0, 0]))
-        camera_dict, _ = rotate_camera_dict_about_up_direction(camera_dict, -0.05, np.array([0, 0, 0, 0]))
+        camera_dict = set_position_to_origin(camera_dict)
+        # camera_dict, _ = move_forward(camera_dict, 3, np.array([0, 0, 0, 0]))
+        # camera_dict, _ = rotate_camera_dict_about_up_direction(camera_dict, -0.05, np.array([0, 0, 0, 0]))
         # keycamera = get_keycameras(keycamera_path)[0]
         gs_positions = self.convert_offsets_to_absolute(camera_dict, gs_offsets)
         UP_VECTOR = np.array(camera_dict['rotation'][1])
@@ -291,44 +292,16 @@ class GaussianModel:
             # xy plane is UP_VECTOR
             # take projection of long forward vector onto xy plane to calculate forward vector
             # calculate orthogonol vector to long forward vector and UP_VECTOR to calculate right vector
-            if i == 1:
-                centering_first_ball_offset = gs_position.copy()
-                # scale = 1
-                # scale = (1.0 / 2.0)
-                # # scale = (1.0 / 2.575)
-                # xyz *= scale
-                # scales /= scale ** (1/3)
+            # if i == 0:
+            #     centering_first_ball_offset = gs_position.copy()
             if i == 0:
-                # UP_VECTOR = np.array([-0.928382,  0.362077,  0.083703]) # ; [0] base
+                # UP_VECTOR = np.array([-0.928382,  0.362077,  0.083703]) # ; [0] based
+                print(f"rotation_theta: {rotation_theta}")
                 xyz = rotate_around_vector(xyz, UP_VECTOR, rotation_theta)
-            if not train_mode:
-                xyz = xyz + gs_position - centering_first_ball_offset
-                print(f"{i}: {gs_position - centering_first_ball_offset}")
-
-            # if i == 1:
-                # xyz = xyz + [-4.4752010569616365, 0.4978229481137085, 2.381869993731324]
-                # xyz = xyz + [-4.935772591318996, 2.09761354574954, 6.124672979884792]
-                # xyz = xyz + [-4.7, 1.25, 4]
-
-                # xyz = xyz + [-1.0259308327567134, 0.45864276478028465, 0.4162266095684606] 
-
-            # if i == 2:
-            #     """
-            #     [[0.35803405629105667, 0.9315585717873832, -0.06332647049396699],
-            #     [-0.9273320764708398, 0.36268300133732523, 0.09228358732315443],
-            #     [-0.10893500118902552, -0.025684000280340846, -0.9937170108464213]]
-            #     """
-            #     # UP_VECTOR = np.array([-0.928382,  0.362077,  0.083703])
-            #     RIGHT_VECTOR = np.array([0.35803405629105667, 0.9315585717873832, -0.06332647049396699])
-            #     UP_VECTOR = np.array([-1, 0, 0])
-            #     FORWARD_VECTOR = np.array([-0.10893500118902552, -0.025684000280340846, -0.9937170108464213])
-
-            #     if "solid_blue_ball" in path2:
-            #         sideways_offset = -sideways_offset
-
-            #     # xyz = move_in_direction(xyz, UP_VECTOR, 0.5)
-            #     xyz = move_in_direction(xyz, FORWARD_VECTOR, 0.2)
-            #     xyz = move_in_direction(xyz, RIGHT_VECTOR, sideways_offset)
+            # if not train_mode:
+            xyz = xyz + gs_position - centering_first_ball_offset
+            print(gs_position)
+            print(f"{i}: {gs_position - centering_first_ball_offset}")
 
             print("Loaded {} points from {}".format(xyz.shape[0], path))
             xyz_list.append(xyz)

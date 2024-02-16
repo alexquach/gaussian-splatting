@@ -2,8 +2,9 @@ import json
 import numpy as np
 import os
 import random
+import matplotlib.pyplot as plt
 
-from camera_custom_utils import get_start_camera, get_yaw_diff_relative_to_origin, rise_relative_to_camera, rotate_about_forward_direction, rotate_camera_dict_about_up_direction, dist_from_origin, move_forward, move_sideways
+from camera_custom_utils import get_start_camera, get_yaw_diff_relative_to_origin, rise_relative_to_camera, rotate_about_forward_direction, rotate_camera_dict_about_up_direction, dist_from_origin, move_forward, move_sideways, set_position_to_origin
 from env_configs import ENV_CONFIGS
 
 MAX_FRAMES = 200
@@ -124,6 +125,7 @@ def rotate_around_vector(xyz, vector, angle):
 def generate_one_pybullet_camera_path(run_path, env_name):
     save_list = []
     start_dict = get_start_camera(ENV_CONFIGS[env_name]["keycamera_path"])
+    PYBULLET_TO_GS_SCALING_FACTOR = ENV_CONFIGS[env_name]["PYBULLET_TO_GS_SCALING_FACTOR"]
 
     with open(os.path.join(base_path, run, "start_dist.txt"), "r") as f:
         start_dist = float(f.readline().strip())
@@ -135,51 +137,57 @@ def generate_one_pybullet_camera_path(run_path, env_name):
     with open(os.path.join(base_path, run, "theta.txt"), "r") as f:
         theta_offset = float(f.readline().strip())
 
-    # SCALING_FACTOR = 3.5 / start_dist
-    SCALING_FACTOR = 2.5
-    # read timestepwise_displacement.csv using numpy
     timestepwise_displacement = np.loadtxt(os.path.join(base_path, run, "timestepwise_displacement.csv"), delimiter=",")
     pos = np.loadtxt(os.path.join(base_path, run, "sim_pos.csv"), delimiter=",")
     
+    # camera_dict, _ = rotate_camera_dict_about_up_direction(camera_dict, -0.05, np.array([0, 0, 0, 0]))
+
     # ? Move forward/backwards for randomization
-    start_dict, _ = move_forward(start_dict, 3.5 - (start_dist * SCALING_FACTOR), np.array([0, 0, 0, 0]))
+
+    # start_dist *= 0.8
+    start_dict = set_position_to_origin(start_dict)
+    start_dict, _ = move_forward(start_dict, -(start_dist * PYBULLET_TO_GS_SCALING_FACTOR), np.array([0, 0, 0, 0]))
+    # start_dict, _ = move_sideways(start_dict, (0.2 * PYBULLET_TO_GS_SCALING_FACTOR), np.array([0, 0, 0, 0]))
     start_dict, _ = rotate_camera_dict_about_up_direction(start_dict, theta_offset, np.array([0, 0, 0, 0]))
-    start_dict, _ = rise_relative_to_camera(start_dict, height_offset * SCALING_FACTOR, np.array([0, 0, 0, 0]))
-    # active_height_offset = height_offset
+    # start_dict, _ = rotate_camera_dict_about_up_direction(start_dict, -0.05, np.array([0, 0, 0, 0]))
+    start_dict, _ = rise_relative_to_camera(start_dict, height_offset * PYBULLET_TO_GS_SCALING_FACTOR, np.array([0, 0, 0, 0]))
 
-    rotation_axis = np.array([-0.928382,  0.362077,  0.083703]) # ; [0] base
-    # rotation_axis = -1 * np.array([ 0.92193783, -0.37936969, -0.07816191])
-    rotation_theta = random.random() * 2 * np.pi
-    start_dict['position'] = rotate_around_vector(start_dict['position'], rotation_axis, rotation_theta).tolist()
-    start_dict, _ = rotate_camera_dict_about_up_direction(start_dict, rotation_theta, np.array([0, 0, 0, 0]))
+    # rotation_axis = np.array([-0.928382,  0.362077,  0.083703]) # ; [0] base
+    # rotation_theta = random.random() * 2 * np.pi
+    # start_dict['position'] = rotate_around_vector(start_dict['position'], rotation_axis, rotation_theta).tolist()
+    # start_dict, _ = rotate_camera_dict_about_up_direction(start_dict, rotation_theta, np.array([0, 0, 0, 0]))
 
-    with open(os.path.join(run_path, "rand_theta.txt"), "w") as f:
-        f.write(str(rotation_theta))
+    # with open(os.path.join(run_path, "rand_theta.txt"), "w") as f:
+    #     f.write(str(rotation_theta))
 
     save_list.append(start_dict)
 
     for displacement in timestepwise_displacement:
-        # 3 hz = 1.2, 1.08
         modified_yaw = displacement[3]
         modified_rise = displacement[2]
-        start_dict, _ = move_forward(start_dict, displacement[0] * SCALING_FACTOR, np.array([0, 0, 0, 0]))
-        start_dict, _ = move_sideways(start_dict, displacement[1] * SCALING_FACTOR, np.array([0, 0, 0, 0]))
-        start_dict, _ = rise_relative_to_camera(start_dict, modified_rise * SCALING_FACTOR, np.array([0, 0, 0, 0]))
+        start_dict, _ = move_forward(start_dict, displacement[0] * PYBULLET_TO_GS_SCALING_FACTOR, np.array([0, 0, 0, 0]))
+        start_dict, _ = move_sideways(start_dict, displacement[1] * PYBULLET_TO_GS_SCALING_FACTOR, np.array([0, 0, 0, 0]))
+        start_dict, _ = rise_relative_to_camera(start_dict, modified_rise * PYBULLET_TO_GS_SCALING_FACTOR, np.array([0, 0, 0, 0]))
         start_dict, _ = rotate_camera_dict_about_up_direction(start_dict, modified_yaw, np.array([0, 0, 0, 0]))
         save_list.append(start_dict)
 
     with open(f"{run_path}/path.json", 'w') as outfile:
         json.dump(save_list, outfile)
 
-    import matplotlib.pyplot as plt
+    plot_camera_path(save_list, run_path, start_dist)
 
+def plot_camera_path(save_list, run_path, start_dist):
     # Extract x, y positions from the save_list
-    x_positions = [camera_dict['position'][0] for camera_dict in save_list]
-    y_positions = [camera_dict['position'][1] for camera_dict in save_list]
+    x_positions = [camera_dict['position'][1] for camera_dict in save_list]
+    y_positions = [camera_dict['position'][0] for camera_dict in save_list]
+
+    targets = [(start_dist, 0.2), (start_dist, -0.2)]
 
     # Create a plot of x, y positions
     plt.figure(figsize=(10, 6))
     plt.plot(x_positions, y_positions, marker='o')
+    for target in targets:
+        plt.plot(target[0], target[1], marker='o', color='red')
     plt.title('Camera Path')
     plt.xlabel('X Position')
     plt.ylabel('Y Position')
@@ -191,8 +199,7 @@ def generate_one_pybullet_camera_path(run_path, env_name):
     plt.close()
 
 if __name__ == "__main__":
-    NUM_SAMPLES = 300
-    base_path = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d6_ss2_400_3hzf_bm_px_td_nlsp_gn_nt"
+    base_path = "/home/makramchahine/repos/gaussian-splatting/train_blip_10"
 
     for run in os.listdir(base_path):
         if not os.path.isdir(os.path.join(base_path, run)):

@@ -10,7 +10,7 @@ def run_script(m_path, s_path, custom_camera_paths, color):
         "render.py",
         "-m", m_path,
         "-s", s_path,
-        "--object_color", color,
+        "--object_colors", color,
         "--custom_camera_paths",
     ] + custom_camera_paths
     subprocess.run(cmd)
@@ -20,7 +20,8 @@ env_name = "holodeck"
 m_path = ENV_CONFIGS[env_name]["m_path"]
 s_path = ENV_CONFIGS[env_name]["s_path"]
 
-base_dir = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d6_ss2_400_3hzf_bm_px_td_nlsp_gn_nt"
+# base_dir = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d6_ss2_400_3hzf_bm_px_td_nlsp_gn_nt"
+base_dir = "/home/makramchahine/repos/gaussian-splatting/train_d6_ss2_10_3hzf_bm_px_td_nlsp_gn_nt_testing"
 
 red_folders = []
 blue_folders = []

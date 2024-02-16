@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import argparse
 plt.rcParams.update({'figure.facecolor':'white'})
 
-from render_folder import images_to_video, combine_videos
+from video_utils.render_folder import save_multi_layer_videos
 
 from env_configs import ENV_CONFIGS
 
@@ -27,17 +27,7 @@ video_filename = "rand.mp4"
 
 # ! Adjustable Params
 USE_DYNAMIC = True
-# tag = "d0_pybullet_300_ogf_600sf"
-# tag = "d6_nonorm_ss2_600_1_10hzf_bm_td_srf_300sf_irreg2_64"
-# tag = "d6_nonorm_ss2_600_1_10hzf_bm_pfff_td_srf_300sf_irreg2_64_hyp"
-# tag = "d6_nonorm_ss2_200_9hzf_bm_px_td_nlsp_gn_nt_srf_150sf_irreg2_64_hyp_cfc"
-# # tag = "d6_nonorm_ss2_600_3hzf_bm_px_td_nlsp_srf_300sf_irreg2_64"
-# RECORD_HZ = 9
-# # MAIN_OUTPUT_FOLDER = f"/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/cl_{tag}_mleno_{RECORD_HZ}hz_hypn"
-# MAIN_OUTPUT_FOLDER = f"/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/cl_{tag}_mleno_{RECORD_HZ}hz_05sf"
-# MAIN_CHECKPOINT_FOLDER = f"/home/makramchahine/repos/drone_multimodal/runner_models/filtered_{tag}"
 NORMALIZE_PATH = None
-# NORMALIZE_PATH = '/home/makramchahine/repos/drone_multimodal/clean_train_d3_300/mean_std.csv'
 SAMPLES_PER_MODEL = 20
 RUN_VAL = True
 USE_EPOCH_FILTER = True
@@ -83,7 +73,7 @@ def main():
     evaluator.build_concurrent_runs()
 
     evaluator.run_concurrent()
-    evaluator.save_videos(dual_video=True)
+    save_multi_layer_videos(MAIN_OUTPUT_FOLDERS, dual_video=True)
     try:
         evaluator.calculate_metrics()
     except Exception as e:
@@ -223,42 +213,10 @@ class Evaluator():
 
                 color = list(color_array)
 
-            # if run_i > 9:
-
-            # filtered_run_absolute_path = []
-            # filtered_params_path = []
-            # filtered_checkpoint_path = []
-            # filtered_record_hz = []
-            # for i, path in enumerate(run_absolute_path):
-            #     if not os.path.exists(os.path.join(path, "finish.txt")):
-            #         filtered_run_absolute_path.append(path)
-            #         filtered_params_path.append(params_path[i])
-            #         filtered_checkpoint_path.append(checkpoint_path[i])
-            #         filtered_record_hz.append(record_hz[i])
-            # run_GS_render(color, filtered_run_absolute_path, filtered_params_path, filtered_checkpoint_path, filtered_record_hz, rand_theta)
-
             if os.path.exists(os.path.join(run_absolute_path[0], "finish.txt")):
                 continue
             run_GS_render(color, run_absolute_path, params_path, checkpoint_path, record_hz, rand_theta)
         # joblib.Parallel(n_jobs=n_jobs)(joblib.delayed(run_GS_render)(color, run_absolute_path, params_path, checkpoint_path, record_hz) for color, run_absolute_path, params_path, checkpoint_path, record_hz in tqdm(zip(self.OBJECTS, self.concurrent_output_folder_full_paths, self.concurrent_params_paths, self.concurrent_checkpoint_paths, self.concurrent_record_hzs)))
-
-    def save_videos(self, dual_video):
-        for main_output_folder in self.main_output_folders:
-            for different_checkpoint_model in os.listdir(main_output_folder):
-                for image_folder_name in sorted(os.listdir(os.path.join(main_output_folder, different_checkpoint_model))):
-                    if not os.path.isdir(os.path.join(main_output_folder, different_checkpoint_model, image_folder_name)):
-                        continue
-                    image_folder = os.path.join(main_output_folder, different_checkpoint_model, image_folder_name)
-                    video_output = os.path.join(main_output_folder, different_checkpoint_model, image_folder_name, "video.mp4")
-                    print(image_folder)
-                    
-                    if f"video.mp4" in os.listdir(os.path.join(main_output_folder, different_checkpoint_model, image_folder_name)):
-                        # os.system(f"rm -rf {video_output}")
-                        continue
-                    images_to_video(image_folder, video_output, DUAL=dual_video)
-
-                # Combine all videos in the directory
-                combine_videos(os.path.join(main_output_folder, different_checkpoint_model))
 
     def calculate_metrics(self):
         for main_output_folder in self.main_output_folders:
