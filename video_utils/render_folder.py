@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 single_choice = "pybullet_pics0"
 
-dual_first = "recon_pics0"
+dual_first = "pics0"
 dual_second = "pybullet_pics0"
 label_new = False
 
@@ -82,7 +82,7 @@ def combine_videos(eval_dir, video_filename="video.mp4", combined_video_filename
 
     subprocess.run(["ffmpeg", "-f", "concat", "-safe", "0", "-i", "input.txt", "-c", "copy", f"{eval_dir}/{combined_video_filename}"])
 
-def save_multi_layer_videos(main_output_folders, dual_video):
+def save_multi_layer_videos(main_output_folders, dual_video=True):
     """
         Saves videos from all the folders in `main_output_folders` in the following structure
     

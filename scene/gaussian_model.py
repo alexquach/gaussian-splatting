@@ -22,8 +22,8 @@ from utils.graphics_utils import BasicPointCloud
 from utils.general_utils import strip_symmetric, build_scaling_rotation
 from scene.gaussian_model_utils import rotate_around_vector, move_in_direction
 
-from camera_custom_utils import get_start_camera, set_position_to_origin
-from camera_custom_utils import move_forward, rotate_camera_dict_about_up_direction, rise_relative_to_camera, move_sideways
+from utils.camera_custom_utils import get_start_camera, set_position_to_origin
+from utils.camera_custom_utils import move_forward, rotate_camera_dict_about_up_direction, rise_relative_to_camera, move_sideways
 
 class GaussianModel:
 
@@ -234,7 +234,7 @@ class GaussianModel:
 
         return gs_positions
 
-    def load_ply(self, paths, rotation_theta=0.0, gs_offsets=None, keycamera_path=None, train_mode=False):
+    def load_ply(self, paths, theta_environment=0.0, gs_offsets=None, keycamera_path=None, train_mode=False):
         xyz_list = []
         features_dc_list = []
         features_rest_list = []
@@ -248,6 +248,8 @@ class GaussianModel:
         # camera_dict, _ = rotate_camera_dict_about_up_direction(camera_dict, -0.05, np.array([0, 0, 0, 0]))
         # keycamera = get_keycameras(keycamera_path)[0]
         gs_positions = self.convert_offsets_to_absolute(camera_dict, gs_offsets)
+        print(f"gs_offsets: {gs_offsets}")
+        print(f"gs_positions: {gs_positions}")
         UP_VECTOR = np.array(camera_dict['rotation'][1])
 
         centering_first_ball_offset = np.array([0, 0, 0])
@@ -296,12 +298,9 @@ class GaussianModel:
             #     centering_first_ball_offset = gs_position.copy()
             if i == 0:
                 # UP_VECTOR = np.array([-0.928382,  0.362077,  0.083703]) # ; [0] based
-                print(f"rotation_theta: {rotation_theta}")
-                xyz = rotate_around_vector(xyz, UP_VECTOR, rotation_theta)
+                xyz = rotate_around_vector(xyz, UP_VECTOR, theta_environment)
             # if not train_mode:
             xyz = xyz + gs_position - centering_first_ball_offset
-            print(gs_position)
-            print(f"{i}: {gs_position - centering_first_ball_offset}")
 
             print("Loaded {} points from {}".format(xyz.shape[0], path))
             xyz_list.append(xyz)

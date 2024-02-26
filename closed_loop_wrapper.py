@@ -1,17 +1,9 @@
 import subprocess
 
-# bm = bimodal
-# px = fixed pybullet issue
-# td = 
-# nlsp = nonlinear speed
-# gn = gaussian noise
-# nt = no forward velocity while turning
-# srf = 
-# irreg2 = support for variable timestep-cfc
-# 64 = batch size
-# hyp = hyperparametertuned
-
 def gen_tag(hz=110, pybullet=False, model_type="cfc"):
+    """
+    Generate model names (based on our paper's naming scheme)
+    """
     if hz == 110:
         traj_hz = "600_1_10hzf"
         epochs = "300"
@@ -29,25 +21,15 @@ def gen_tag(hz=110, pybullet=False, model_type="cfc"):
 
 # Define your configurations
 configurations = [
-    # {"tag": gen_tag(110, True, "cfc"), "record_hz": 3},
-    # {"tag": gen_tag(110, True, "cfc"), "record_hz": 9},
-    # {"tag": gen_tag(3, True, "cfc"), "record_hz": 3},
-    # {"tag": gen_tag(9, True, "cfc"), "record_hz": 9},
-    # {"tag": gen_tag(9, True, "cfc"), "record_hz": 3},
-    # {"tag": gen_tag(3, True, "lstm"), "record_hz": 3},
-    # {"tag": gen_tag(9, True, "lstm"), "record_hz": 9},
     {"tag": gen_tag(110, False, "cfc"), "record_hz": 3},
-    # {"tag": gen_tag(110, False, "cfc"), "record_hz": 9},
-    # {"tag": gen_tag(3, False, "cfc"), "record_hz": 3},
-    # {"tag": gen_tag(9, False, "cfc"), "record_hz": 9}, #this
-    # {"tag": gen_tag(9, False, "cfc"), "record_hz": 3}, #this
-    # {"tag": gen_tag(3, False, "lstm"), "record_hz": 3},
-    # {"tag": gen_tag(9, False, "lstm"), "record_hz": 9},
 ]
-print(configurations)
+
+def gen_custom_tag():
+    return "trained_model"
 
 tags = [config["tag"] for config in configurations]
 record_hzs = [str(config["record_hz"]) for config in configurations]
+env_name = "holodeck"
 
 try: 
     command = [
@@ -55,6 +37,7 @@ try:
         "closed_loop_render.py",
         "--tags", *tags,
         "--record_hzs", *record_hzs,
+        "--env_name", env_name
     ]
 
     subprocess.run(command)

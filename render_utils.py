@@ -4,36 +4,64 @@ import random
 from PIL import Image
 import os
 import sys
+import json
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(SCRIPT_DIR, ".."))
+# SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+# sys.path.append(os.path.join(SCRIPT_DIR, ".."))
 
-from drone_multimodal.utils.model_utils import load_model_from_weights, generate_hidden_list, get_readable_name, \
-    get_params_from_json
-from drone_multimodal.keras_models import IMAGE_SHAPE
-from drone_multimodal.preprocess.process_data_util import resize_and_crop
+from drone_causality.keras_models import IMAGE_SHAPE
+from drone_causality.preprocess.process_data_util import resize_and_crop
+from gym_pybullet_drones.examples.schemas import InitConditionsClosedLoopInferenceSchema
 
-def generate_init_conditions(object_colors, gs_offsets, PYBULLET_TO_GS_SCALING_FACTOR):
-    """Shared between training and CL inference"""
-    start_H = 0.1 + 0.5 #random.choice([0, 1])
-    # start_H = 0.1 + random.uniform(0, 1)
-    gs_offsets_xy = np.array(gs_offsets)[:, 0:2]
-    gs_offsets_z = np.array(gs_offsets)[:, 2]
-    Theta = random.uniform(0, 2 * np.pi) # doesn't match the GS rotation, but should be fine because its arbitrary
-    Theta_offset = random.uniform(0.175 * np.pi, -0.175 * np.pi) #random.choice([0.175 * np.pi, -0.175 * np.pi])
-    if object_colors[0] == "R":
-        Theta_offset = -abs(Theta_offset)
+
+def generate_init_conditions_closed_loop_inference(objects_color, PYBULLET_TO_GS_SCALING_FACTOR, closed_loop_save_paths) -> InitConditionsClosedLoopInferenceSchema:
+    """
+    Specific implementation with weighted probabilities
+
+    Task: Single Object -- Approach and Turn
+
+    """
+    pybullet_rand_forward = random.uniform(1.5, 2)
+    gs_rand_forward = pybullet_rand_forward * PYBULLET_TO_GS_SCALING_FACTOR
+    gs_offsets_from_camera = [[0, 0, 0], [gs_rand_forward, 0, 0], [gs_rand_forward * 0.9, -gs_rand_forward if objects_color[0] == "R" else gs_rand_forward, 0]] # forward, right, up
+
+    gs_offsets_xy = np.array(gs_offsets_from_camera)[1:, 0:2]
+    gs_offsets_z = np.array(gs_offsets_from_camera)[1:, 2]
+
+    max_yaw_offset = 0.175 * np.pi
+    start_heights = [0.1 + 0.5]
+    target_heights = ((0.1 + 0.5 + gs_offsets_z) / PYBULLET_TO_GS_SCALING_FACTOR).tolist()
+    theta_offset = random.uniform(0, max_yaw_offset)
+    if objects_color[0] == "R":
+        theta_offset = -abs(theta_offset)
     else:
-        Theta_offset = abs(Theta_offset)
+        theta_offset = abs(theta_offset)
+    theta_environment = random.random() * 2 * np.pi
 
-    print(f"gs_offsets_xy / PYBULLET_TO_GS_SCALING_FACTOR: {gs_offsets_xy / PYBULLET_TO_GS_SCALING_FACTOR}")
-    return {
-        "start_H": start_H,
-        "target_Hs": 0.6 + gs_offsets_z / PYBULLET_TO_GS_SCALING_FACTOR,
-        "Theta": Theta,
-        "Theta_offset": Theta_offset,
-        "rel_obj": gs_offsets_xy / PYBULLET_TO_GS_SCALING_FACTOR * np.array([1, -1]), # y is flipped in pybullet
+    # NOTE: y is opposite in pybullet compared to GS coordinates, so we flip it here:
+    objects_relative = gs_offsets_xy / PYBULLET_TO_GS_SCALING_FACTOR * np.array([1, -1])
+
+    init_conditions_schema = InitConditionsClosedLoopInferenceSchema()
+    init_conditions = {
+        "task_name": "closed_loop_inference",
+        "start_heights": start_heights,
+        "target_heights": target_heights,
+        "start_dist": pybullet_rand_forward,
+        "theta_offset": theta_offset,
+        "theta_environment": theta_environment,
+        "objects_relative": objects_relative,
+        "objects_color": objects_color,
+        "PYBULLET_TO_GS_SCALING_FACTOR": PYBULLET_TO_GS_SCALING_FACTOR,
+        "gs_objects_relative": np.array(gs_offsets_from_camera)[1:, 0:2].tolist()
     }
+    init_conditions = init_conditions_schema.load(init_conditions)
+    for path in closed_loop_save_paths:
+        os.makedirs(path, exist_ok=True)
+        init_conditions_path = os.path.join(path, "init_conditions.json")
+        with open(init_conditions_path, "w") as f:
+            json.dump(init_conditions, f)
+
+    return init_conditions
 
 def transform_gs_img_to_network_input(rendering):
     # calculate next camera position with model velocity updates

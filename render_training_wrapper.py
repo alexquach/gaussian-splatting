@@ -1,40 +1,46 @@
 import os
 import subprocess
 from tqdm import tqdm
+import argparse
 
 from env_configs import ENV_CONFIGS
 
-def run_script(m_path, s_path, custom_camera_paths, color):
+def run_script(m_path, s_path, custom_camera_paths, full_path, env_name):
     cmd = [
         "python",
-        "render.py",
+        "render_choice.py", # TODO fix
         "-m", m_path,
         "-s", s_path,
-        "--object_colors", color,
+        "--full_path", full_path,
+        "--env_name", env_name,
         "--custom_camera_paths",
     ] + custom_camera_paths
     subprocess.run(cmd)
 
-# Paths and parameters
-env_name = "holodeck"
-m_path = ENV_CONFIGS[env_name]["m_path"]
-s_path = ENV_CONFIGS[env_name]["s_path"]
 
-# base_dir = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/train_d6_ss2_400_3hzf_bm_px_td_nlsp_gn_nt"
-base_dir = "/home/makramchahine/repos/gaussian-splatting/train_d6_ss2_10_3hzf_bm_px_td_nlsp_gn_nt_testing"
+def run_script_for_all_subfolders(base_dir, m_path, s_path, env_name):
+    for folder in sorted(os.listdir(base_dir)):
+        if not os.path.isdir(os.path.join(base_dir, folder)):
+            continue
 
-red_folders = []
-blue_folders = []
+        full_path = os.path.join(base_dir, folder)
+        camera_path = [str(os.path.join(base_dir, folder, "path.json"))]
 
-for folder in sorted(os.listdir(base_dir)):
-    color_file = os.path.join(base_dir, folder, "colors.txt")
-    if os.path.isfile(color_file):
-        with open(color_file, "r") as f:
-            color = f.readline().strip()
-            if color == "R":
-                red_folders.append(str(os.path.join(base_dir, folder, "path.json")))
-            elif color == "B":
-                blue_folders.append(str(os.path.join(base_dir, folder, "path.json")))
+        run_script(m_path, s_path, camera_path, full_path, env_name)
 
-run_script(m_path, s_path, red_folders, "R")
-run_script(m_path, s_path, blue_folders, "B")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Provide base directory.')
+    parser.add_argument('--base_dir', type=str, default="./generated_paths/train_fly_and_turn", help='Base directory for the script')
+    parser.add_argument('--env_name', type=str, default="holodeck", help='Environment name')
+    args = parser.parse_args()
+
+    base_dir = args.base_dir
+    env_name = args.env_name
+    
+    # Paths and parameters
+    m_path = ENV_CONFIGS[env_name]["m_path"]
+    s_path = ENV_CONFIGS[env_name]["s_path"]
+
+    run_script_for_all_subfolders(base_dir, m_path, s_path, env_name)
+

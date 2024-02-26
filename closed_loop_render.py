@@ -14,43 +14,36 @@ import argparse
 plt.rcParams.update({'figure.facecolor':'white'})
 
 from video_utils.render_folder import save_multi_layer_videos
-
 from env_configs import ENV_CONFIGS
-
-# Paths and parameters
-env_name = "holodeck"
-M_PATH = ENV_CONFIGS[env_name]["m_path"]
-S_PATH = ENV_CONFIGS[env_name]["s_path"]
 
 combined_video_filename = "combined_video.mp4"
 video_filename = "rand.mp4"
 
 # ! Adjustable Params
-USE_DYNAMIC = True
-NORMALIZE_PATH = None
-SAMPLES_PER_MODEL = 20
 RUN_VAL = True
 USE_EPOCH_FILTER = True
+# which epoch checkpoints to run
 EPOCH_FILTER = [] #[100, 300] #[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]
 
-def run_GS_render(color, run_absolute_paths, params_paths, checkpoint_paths, record_hzs, rand_theta):
-    print(f"record_hzs: {record_hzs}")
+main_output_folder_format = "./generated_paths/cl_realgs_{}_mleno_{}hz_05sf_100act_doub"
+main_checkpoint_folder_format = "./drone_causality/runner_models/filtered_{}"
+
+def run_GS_render(env_name, colors, record_hzs, run_absolute_paths, params_paths, checkpoint_paths):
+    M_PATH = ENV_CONFIGS[env_name]["m_path"]
+    S_PATH = ENV_CONFIGS[env_name]["s_path"]
     
     cmd = [
         "python",
-        "render.py",
+        "render_choice.py",
         "-m", M_PATH,
         "-s", S_PATH,
-        "--object_color", *color,
-        # "--normalize_path", NORMALIZE_PATH,
+        "--is_closed_loop",
+        "--objects_color", *colors,
         "--record_hzs", *record_hzs,
         "--params_paths", *params_paths,
         "--checkpoint_paths", *checkpoint_paths,
         "--closed_loop_save_paths", *run_absolute_paths,
-        "--rand_theta", str(rand_theta),
     ]
-    if USE_DYNAMIC:
-        cmd.append("--use_dynamic")
     subprocess.run(cmd)
 
 
@@ -58,22 +51,31 @@ def main():
     parser = argparse.ArgumentParser(description='Run script with different configurations.')
     parser.add_argument('--tags', nargs='*', type=str, help='Tags for the runs')
     parser.add_argument('--record_hzs', nargs='*', type=int, help='Record HZs')
+    parser.add_argument('--env_name', type=str, default="holodeck", help='Environment name')
+    parser.add_argument('--num_objects_per_run', type=int, default=2, help='Number of objects per run')
+    parser.add_argument('--samples_per_model', type=int, default=10, help='Number of samples per model')
     args = parser.parse_args()
 
     # Use the arguments in your script
-    global tags, record_hzs, MAIN_OUTPUT_FOLDER, MAIN_CHECKPOINT_FOLDER
+    env_name = args.env_name
+    num_objects_per_run = args.num_objects_per_run
+    global tags, record_hzs, MAIN_OUTPUT_FOLDER, MAIN_CHECKPOINT_FOLDER, samples_per_model
+    samples_per_model = args.samples_per_model
     tags = args.tags
     RECORD_HZS = args.record_hzs
-    MAIN_OUTPUT_FOLDERS = [f"/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/cl_realgs_{tag}_mleno_{record_hz}hz_05sf_100act_doub_emergency" for tag, record_hz in zip(tags, RECORD_HZS)]
-    MAIN_CHECKPOINT_FOLDERS = [f"/home/makramchahine/repos/drone_multimodal/runner_models/filtered_{tag}" for tag in tags]
+    MAIN_OUTPUT_FOLDERS = [main_output_folder_format.format(tag, record_hz) for tag, record_hz in zip(tags, RECORD_HZS)]
+    MAIN_CHECKPOINT_FOLDERS = [main_checkpoint_folder_format.format(tag) for tag in tags]
 
-    evaluator = Evaluator(MAIN_OUTPUT_FOLDERS, MAIN_CHECKPOINT_FOLDERS, RECORD_HZS, multi=True)
+    print(f"MAIN_OUTPUT_FOLDERS: {MAIN_OUTPUT_FOLDERS}")
+    print(f"MAIN_CHECKPOINT_FOLDERS: {MAIN_CHECKPOINT_FOLDERS}")
+
+    evaluator = Evaluator(MAIN_OUTPUT_FOLDERS, MAIN_CHECKPOINT_FOLDERS, RECORD_HZS)
 
     evaluator.config_eval_models(RUN_VAL)
-    evaluator.build_concurrent_runs()
+    evaluator.build_concurrent_runs(num_objects_per_run)
 
-    evaluator.run_concurrent()
-    save_multi_layer_videos(MAIN_OUTPUT_FOLDERS, dual_video=True)
+    evaluator.run_concurrent(env_name)
+    save_multi_layer_videos(MAIN_OUTPUT_FOLDERS)
     try:
         evaluator.calculate_metrics()
     except Exception as e:
@@ -105,7 +107,6 @@ class Evaluator():
             hdf5_files = glob.glob(os.path.join(recurrent_folder, '*.hdf5'))
             for hdf5_file_path in hdf5_files:
                 epoch_num = int(re.findall(r'epoch-(\d+)', hdf5_file_path)[0]) # parse "epoch-%d" from hdf5 filename
-                print(epoch_num)
 
                 if USE_EPOCH_FILTER and epoch_num not in EPOCH_FILTER:
                     continue
@@ -122,12 +123,12 @@ class Evaluator():
                 hdf5_files = glob.glob(os.path.join(recurrent_folder, '*.hdf5'))
                 self.eval_models.append((main_checkpoint_folder, main_output_folder, hdf5_files[0], 'val', record_hz))
 
-    def build_concurrent_runs(self):
+    def build_concurrent_runs(self, num_objects_per_run):
         """
             Samples per model
                 x [models to evaluate per common run parameters]
         """
-        for i in range(SAMPLES_PER_MODEL):
+        for i in range(samples_per_model):
             concurrent_checkpoint_path = []
             concurrent_params_path = []
             concurrent_output_folder_full_path = []
@@ -150,72 +151,36 @@ class Evaluator():
                 self.concurrent_output_folder_full_paths.append(concurrent_output_folder_full_path)
                 self.concurrent_record_hzs.append(concurrent_record_hz)
 
-        self.append_initial_conditions()
+        self.append_initial_conditions(num_objects_per_run)
 
-    def append_initial_conditions(self):
+    def append_initial_conditions(self, num_objects_per_run):
         """
         Assign initial conditions := [object colors]
         """
-        if self.multi:
-            PERMUTATIONS_COLORS = [list(perm) for perm in itertools.product(self.PRIMITIVE_OBJECTS, repeat=2)]
-            OBJECTS = []
-            for _ in range(SAMPLES_PER_MODEL // len(PERMUTATIONS_COLORS)):
-                OBJECTS.extend(PERMUTATIONS_COLORS)
-            OBJECTS.extend(PERMUTATIONS_COLORS[:SAMPLES_PER_MODEL % len(PERMUTATIONS_COLORS)])
-            random.shuffle(OBJECTS)
+        PERMUTATIONS_COLORS = [list(perm) for perm in itertools.product(self.PRIMITIVE_OBJECTS, repeat=num_objects_per_run)]
 
-            LOCATIONS_REL = []
-            for targets in OBJECTS:
-                locations = []
-                cur_point = (0, 0) #random.uniform(0.75, 1.5)
-                cur_direction = 0 
-                for target in targets:
-                    cur_dist = random.uniform(1, 1.75) - 0.2
-                    target_loc = (cur_point[0] + (cur_dist + 0.2) * math.cos(cur_direction), cur_point[1] + (cur_dist + 0.2) * math.sin(cur_direction))
-                    cur_point = (cur_point[0] + cur_dist * math.cos(cur_direction), cur_point[1] + cur_dist * math.sin(cur_direction))
-                    locations.append(target_loc)
+        OBJECTS = []
+        for _ in range(samples_per_model // len(PERMUTATIONS_COLORS)):
+            OBJECTS.extend(PERMUTATIONS_COLORS)
+        OBJECTS.extend(PERMUTATIONS_COLORS[:samples_per_model % len(PERMUTATIONS_COLORS)])
 
-                    if target[0] == 'R':
-                        cur_direction += math.pi / 2
-                    elif target[0] == 'G':
-                        cur_direction += 0
-                    elif target[0] == 'B':
-                        cur_direction += -math.pi / 2
-                LOCATIONS_REL.append(locations)
-        else:
-            OBJECTS = self.PRIMITIVE_OBJECTS * (SAMPLES_PER_MODEL // len(self.PRIMITIVE_OBJECTS))#[[random.choice(OBJECTS)] for _ in range(len(output_folder_paths))]
-            LOCATIONS_REL = [[(random.uniform(0.75, 2.0), 0)] for _ in range(len(self.concurrent_output_folder_full_paths))]
-
+        random.shuffle(OBJECTS)
         self.OBJECTS.extend(OBJECTS)
 
-    def run_concurrent(self, n_jobs=1):
-        directory = "/home/makramchahine/repos/gym-pybullet-drones/gym_pybullet_drones/examples/cl_realgs_settings"
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        for color, run_absolute_path, params_path, checkpoint_path, record_hz in tqdm(zip(self.OBJECTS, self.concurrent_output_folder_full_paths, self.concurrent_params_paths, self.concurrent_checkpoint_paths, self.concurrent_record_hzs)):
-            # parse run_i
-            print(run_absolute_path)
+    def run_concurrent(self, env_name: str, n_jobs=1):
+        consistent_configs_dir = "./cl_consistent_configs"
+        if not os.path.exists(consistent_configs_dir):
+            os.makedirs(consistent_configs_dir)
+        
+        for colors, run_absolute_path, params_path, checkpoint_path, record_hz in tqdm(zip(self.OBJECTS, self.concurrent_output_folder_full_paths, self.concurrent_params_paths, self.concurrent_checkpoint_paths, self.concurrent_record_hzs)):
             run_i = int(re.findall(r'run_(\d+)', run_absolute_path[0])[0])
-            print(run_i)
-            rand_theta = random.uniform(0, 2 * np.pi)
 
-            # store color array and rand_theta in file
-            if not os.path.exists(os.path.join(directory, str(run_i))):
-                os.makedirs(os.path.join(directory, str(run_i)))
-            
-            if not os.path.exists(os.path.join(directory, str(run_i), "color.txt")):
-                color_array = np.array(color)
-                np.savetxt(os.path.join(directory, str(run_i), "color.txt"), color_array, fmt="%s")
-                np.savetxt(os.path.join(directory, str(run_i), "rand_theta.txt"), np.array([rand_theta]), fmt="%s")
-            else:
-                color_array = np.genfromtxt(os.path.join(directory, str(run_i), "color.txt"), dtype=str)
-                rand_theta = np.genfromtxt(os.path.join(directory, str(run_i), "rand_theta.txt"), dtype=str)
-
-                color = list(color_array)
+            if not os.path.exists(os.path.join(consistent_configs_dir, str(run_i))):
+                os.makedirs(os.path.join(consistent_configs_dir, str(run_i)))
 
             if os.path.exists(os.path.join(run_absolute_path[0], "finish.txt")):
                 continue
-            run_GS_render(color, run_absolute_path, params_path, checkpoint_path, record_hz, rand_theta)
+            run_GS_render(env_name, colors, record_hz, run_absolute_path, params_path, checkpoint_path)
         # joblib.Parallel(n_jobs=n_jobs)(joblib.delayed(run_GS_render)(color, run_absolute_path, params_path, checkpoint_path, record_hz) for color, run_absolute_path, params_path, checkpoint_path, record_hz in tqdm(zip(self.OBJECTS, self.concurrent_output_folder_full_paths, self.concurrent_params_paths, self.concurrent_checkpoint_paths, self.concurrent_record_hzs)))
 
     def calculate_metrics(self):
