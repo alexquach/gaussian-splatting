@@ -3,11 +3,10 @@ ENV_CONFIGS = {
     "holodeck": {
         "env_name": "holodeck",
         "m_path": "/home/makramchahine/repos/gaussian-splatting/output/holodeck2",
-        "s_path": "/home/makramchahine/repos/nerf/data/nerfstudio/custom/holodeck2/keyframes",
+        "s_path": "/home/makramchahine/repos/gaussian-splatting/data/holodeck2/keyframes",
         "ply_path": "/home/makramchahine/repos/gaussian-splatting/output/holodeck2/point_cloud/iteration_30000/point_cloud.ply",
         "keycamera_path": "./camera_assets/key_cameras_4",
-        # "PYBULLET_TO_GS_SCALING_FACTOR": 2.525 * 1.25, = 3.15625
-        "PYBULLET_TO_GS_SCALING_FACTOR": 1
+        "PYBULLET_TO_GS_SCALING_FACTOR": 2
     },
     "colosseum": {
         "env_name": "colosseum",

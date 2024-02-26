@@ -244,12 +244,7 @@ class GaussianModel:
 
         camera_dict = get_start_camera(keycamera_path)
         camera_dict = set_position_to_origin(camera_dict)
-        # camera_dict, _ = move_forward(camera_dict, 3, np.array([0, 0, 0, 0]))
-        # camera_dict, _ = rotate_camera_dict_about_up_direction(camera_dict, -0.05, np.array([0, 0, 0, 0]))
-        # keycamera = get_keycameras(keycamera_path)[0]
         gs_positions = self.convert_offsets_to_absolute(camera_dict, gs_offsets)
-        print(f"gs_offsets: {gs_offsets}")
-        print(f"gs_positions: {gs_positions}")
         UP_VECTOR = np.array(camera_dict['rotation'][1])
 
         centering_first_ball_offset = np.array([0, 0, 0])
@@ -291,15 +286,8 @@ class GaussianModel:
                 rots[:, idx] = np.asarray(plydata.elements[0][attr_name])
 
 
-            # xy plane is UP_VECTOR
-            # take projection of long forward vector onto xy plane to calculate forward vector
-            # calculate orthogonol vector to long forward vector and UP_VECTOR to calculate right vector
-            # if i == 0:
-            #     centering_first_ball_offset = gs_position.copy()
             if i == 0:
-                # UP_VECTOR = np.array([-0.928382,  0.362077,  0.083703]) # ; [0] based
                 xyz = rotate_around_vector(xyz, UP_VECTOR, theta_environment)
-            # if not train_mode:
             xyz = xyz + gs_position - centering_first_ball_offset
 
             print("Loaded {} points from {}".format(xyz.shape[0], path))

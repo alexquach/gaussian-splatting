@@ -1,4 +1,4 @@
-name: gaussian_splatting_debug
+name: gs_pyb_comb
 channels:
   - pytorch
   - conda-forge

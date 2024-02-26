@@ -23,7 +23,7 @@ video_filename = "rand.mp4"
 RUN_VAL = True
 USE_EPOCH_FILTER = True
 # which epoch checkpoints to run
-EPOCH_FILTER = [] #[100, 300] #[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]
+EPOCH_FILTER = []
 
 main_output_folder_format = "./generated_paths/cl_realgs_{}_mleno_{}hz_05sf_100act_doub"
 main_checkpoint_folder_format = "./drone_causality/runner_models/filtered_{}"

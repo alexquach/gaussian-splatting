@@ -6,9 +6,6 @@ import os
 import sys
 import json
 
-# SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-# sys.path.append(os.path.join(SCRIPT_DIR, ".."))
-
 from drone_causality.keras_models import IMAGE_SHAPE
 from drone_causality.preprocess.process_data_util import resize_and_crop
 from gym_pybullet_drones.examples.schemas import InitConditionsClosedLoopInferenceSchema

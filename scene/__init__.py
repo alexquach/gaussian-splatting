@@ -24,17 +24,10 @@ class Scene:
 
     gaussians : GaussianModel
 
-    def __init__(self, scene_config: dict, args : ModelParams, gaussians : GaussianModel, load_iteration=None, shuffle=True, resolution_scales=[1.0]):
-        """b
+    def __init__(self, args : ModelParams, gaussians : GaussianModel, scene_config: dict = None, load_iteration=None, shuffle=True, resolution_scales=[1.0]):
+        """
         :param path: Path to colmap scene main folder.
         """
-
-        object_paths = scene_config.get("object_paths", None)
-        theta_environment = scene_config.get("theta_environment", 0.0)
-        gs_offsets_from_camera = scene_config.get("gs_offsets_from_camera", None)
-        keycamera_path = scene_config.get("keycamera_path", None)
-        train_mode = scene_config.get("train_mode", False)
-
         self.model_path = args.model_path
         self.loaded_iter = None
         self.gaussians = gaussians
@@ -85,6 +78,12 @@ class Scene:
             self.test_cameras[resolution_scale] = cameraList_from_camInfos(scene_info.test_cameras, resolution_scale, args)
 
         if self.loaded_iter:
+            object_paths = scene_config.get("object_paths", None)
+            theta_environment = scene_config.get("theta_environment", 0.0)
+            gs_offsets_from_camera = scene_config.get("gs_offsets_from_camera", None)
+            keycamera_path = scene_config.get("keycamera_path", None)
+            train_mode = scene_config.get("train_mode", False)
+
             self.gaussians.load_ply(object_paths,        
                                     theta_environment,
                                     gs_offsets_from_camera,
