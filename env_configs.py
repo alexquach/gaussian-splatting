@@ -21,7 +21,7 @@ ENV_CONFIGS = {
 TEMPLATE_CAMERA_JSON_PATH = "/home/makramchahine/repos/gaussian-splatting/output/holodeck2/cameras.json"
 
 COLOR_MAP = {
-    "R": "/home/makramchahine/repos/gaussian-splatting/output/solid_red_ball/point_cloud/iteration_30000/point_cloud.ply",
-    "B": "/home/makramchahine/repos/gaussian-splatting/output/solid_blue_ball/point_cloud/iteration_30000/point_cloud.ply",
-    "G": "/home/makramchahine/repos/gaussian-splatting/output/solid_blue_ball/point_cloud/iteration_30000/point_cloud.ply",
+    "R": "./output/solid_red_ball/point_cloud/iteration_30000/point_cloud.ply",
+    "B": "./output/solid_blue_ball/point_cloud/iteration_30000/point_cloud.ply",
+    "G": "./output/solid_blue_ball/point_cloud/iteration_30000/point_cloud.ply",
 }
