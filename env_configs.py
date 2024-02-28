@@ -2,9 +2,9 @@
 ENV_CONFIGS = {
     "holodeck": {
         "env_name": "holodeck",
-        "m_path": "/home/makramchahine/repos/gaussian-splatting/output/holodeck2",
-        "s_path": "/home/makramchahine/repos/gaussian-splatting/data/holodeck2/keyframes",
-        "ply_path": "/home/makramchahine/repos/gaussian-splatting/output/holodeck2/point_cloud/iteration_30000/point_cloud.ply",
+        "m_path": "./output/holodeck2_gs",
+        "s_path": "./data/holodeck2_data/keyframes",
+        "ply_path": "./output/holodeck2_gs/point_cloud/iteration_30000/point_cloud.ply",
         "keycamera_path": "./camera_assets/key_cameras_4",
         "PYBULLET_TO_GS_SCALING_FACTOR": 2
     },
@@ -18,7 +18,7 @@ ENV_CONFIGS = {
     }
 }
 
-TEMPLATE_CAMERA_JSON_PATH = "/home/makramchahine/repos/gaussian-splatting/output/holodeck2/cameras.json"
+TEMPLATE_CAMERA_JSON_PATH = "./output/holodeck2_gs/cameras.json"
 
 COLOR_MAP = {
     "R": "./output/solid_red_ball/point_cloud/iteration_30000/point_cloud.ply",
