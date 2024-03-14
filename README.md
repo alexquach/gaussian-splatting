@@ -1,29 +1,7 @@
-TODO:
-- [x] Cleanup Pybullet Generation Script
-- [x] Cleanup GS Render Script
-- [x] Use absolute positioning in Closed Loop render
-- [x] Abstract away magic variables / configurations in each repo
-  - [x] gaussian-splatting
-  - [x] gym-pybullet-drone
-  - [x] drone_causality
-- [x] Fix fly_and_turn training script
-- [x] Change paths in env_configs
-- [x] Reliable Conda environment + more setup instructions
-- [x] Host assets
-
 Nice to haves:
 - [ ] Script to put .urdfs in pybullet data
 - [ ] Combined Pybullet Path Generation + GS Rendering Script
 
-\
-\
-\
-\
-\
-\
-\
-\
-\
 ## Set up:
 Install Cuda 11.8 + CuDNN on your machine with GPU\
 (optional) colmap: https://colmap.github.io/install.html
@@ -68,17 +46,18 @@ Preprocess data for training format:
 Mostly follow the original instructions:
 - Put data in form:
   - directory_name (ex: solid_red_ball)
-    - inputs
+    - input
       - image_0
       - image_1
       - ...
-    - points3d.ply
     - transforms_test.json
     - transforms_train.json
     - transforms_val.json
-- `python train.py -s /home/makramchahine/repos/gaussian-splatting/data/solid_red_ball --densification_interval 500`
+- `python train.py -s ./gaussian-splatting/data/solid_red_ball --densification_interval 500 --resolution 2`
 
 ### Generating New Objects (Blender)
+- `pip install bpy==3.6.0`
 - Use Blender to create images from all perspectives around:\
 `python data/blender_script.py`
-- Train a new model using the GS Training Method
+- Train a new model using the GS Training Method (`train.py`)
+  - `python train.py -s ./data/purple_duck --densification_interval 500 --resolution 2`
