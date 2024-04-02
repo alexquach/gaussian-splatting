@@ -33,7 +33,7 @@ def images_to_video(image_folder, video_output, DUAL):
             output_image = Image.new('RGB', (width * cols, height * rows), color=(255, 255, 255))
         
             draw = ImageDraw.Draw(output_image)
-            font = ImageFont.truetype("/usr/share/fonts/truetype/lato/Lato-Medium.ttf", size=20)
+            font = ImageFont.load_default()
 
             positions = [(x, y) for x in range(0, width * cols, width) for y in range(0, height * rows, height)]
             if DUAL:
@@ -44,15 +44,19 @@ def images_to_video(image_folder, video_output, DUAL):
                 else:
                     imgs = [img2]
             for image, pos in zip(imgs, positions):
-                output_image.paste(image, pos)
+                try:
+                    output_image.paste(image, pos)
+                except OSError as e:
+                    print("Caught OSERROR: ", e)
+
 
             if i < 30:
                 draw.text((cols * width - 60, 10), "begin", fill="red", font=font)
 
             output_image.save(os.path.join(image_folder, "labeled_pics", img_path))
 
-        os.system(f"ffmpeg -framerate 30 -pattern_type glob -i '{image_folder}/labeled_pics/0*.png' -c:v libx264 -pix_fmt yuv420p {video_output} > /dev/null 2>&1")
-        os.system(f"rm -rf {image_folder}/labeled_pics")
+        os.system(f"ffmpeg -framerate 30 -pattern_type glob -i '{image_folder}/labeled_pics/0*.png' -c:v libx264 -pix_fmt yuv420p {video_output}")
+        # os.system(f"rm -rf {image_folder}/labeled_pics")
     else:
         for count, filename in enumerate(sorted(os.listdir(os.path.join(image_folder, dual_second)))):
             dst = str(count).zfill(5) + ".png"
@@ -102,6 +106,8 @@ def save_multi_layer_videos(main_output_folders, dual_video=True):
 
     for main_output_folder in main_output_folders:
         for different_checkpoint_model in os.listdir(main_output_folder):
+            if not os.path.isdir(os.path.join(main_output_folder, different_checkpoint_model)):
+                continue
             for image_folder_name in sorted(os.listdir(os.path.join(main_output_folder, different_checkpoint_model))):
                 if not os.path.isdir(os.path.join(main_output_folder, different_checkpoint_model, image_folder_name)):
                     continue

@@ -6,7 +6,7 @@ ENV_CONFIGS = {
         "s_path": "./data/holodeck2_data/keyframes",
         "ply_path": "./output/holodeck2_gs/point_cloud/iteration_30000/point_cloud.ply",
         "keycamera_path": "./camera_assets/key_cameras_4",
-        "PYBULLET_TO_GS_SCALING_FACTOR": 2
+        "PYBULLET_TO_GS_SCALING_FACTOR": 1.5 # 2 for training
     },
     "colosseum": {
         "env_name": "colosseum",
@@ -21,7 +21,11 @@ ENV_CONFIGS = {
 TEMPLATE_CAMERA_JSON_PATH = "./output/holodeck2_gs/cameras.json"
 
 COLOR_MAP = {
+    # "R": "./output/purple_duck/point_cloud/iteration_30000/point_cloud.ply",
+    # "R": "./output/red_cube/point_cloud/iteration_30000/point_cloud.ply",
     "R": "./output/solid_red_ball/point_cloud/iteration_30000/point_cloud.ply",
+    # "B": "./output/normal_duck/point_cloud/iteration_30000/point_cloud.ply",
+    # "B": "./output/blue_cube/point_cloud/iteration_30000/point_cloud.ply",
     "B": "./output/solid_blue_ball/point_cloud/iteration_30000/point_cloud.ply",
     "G": "./output/solid_blue_ball/point_cloud/iteration_30000/point_cloud.ply",
 }

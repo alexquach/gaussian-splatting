@@ -53,7 +53,7 @@ def main():
     parser.add_argument('--record_hzs', nargs='*', type=int, help='Record HZs')
     parser.add_argument('--env_name', type=str, default="holodeck", help='Environment name')
     parser.add_argument('--num_objects_per_run', type=int, default=2, help='Number of objects per run')
-    parser.add_argument('--samples_per_model', type=int, default=10, help='Number of samples per model')
+    parser.add_argument('--samples_per_model', type=int, default=100, help='Number of samples per model')
     args = parser.parse_args()
 
     # Use the arguments in your script
@@ -167,21 +167,22 @@ class Evaluator():
         random.shuffle(OBJECTS)
         self.OBJECTS.extend(OBJECTS)
 
-    def run_concurrent(self, env_name: str, n_jobs=1):
-        consistent_configs_dir = "./cl_consistent_configs"
-        if not os.path.exists(consistent_configs_dir):
-            os.makedirs(consistent_configs_dir)
+    def run_concurrent(self, env_name: str, n_jobs=3):
+        # consistent_configs_dir = "./cl_consistent_configs"
+        # if not os.path.exists(consistent_configs_dir):
+        #     os.makedirs(consistent_configs_dir)
         
-        for colors, run_absolute_path, params_path, checkpoint_path, record_hz in tqdm(zip(self.OBJECTS, self.concurrent_output_folder_full_paths, self.concurrent_params_paths, self.concurrent_checkpoint_paths, self.concurrent_record_hzs)):
-            run_i = int(re.findall(r'run_(\d+)', run_absolute_path[0])[0])
+        # for colors, run_absolute_path, params_path, checkpoint_path, record_hz in tqdm(zip(self.OBJECTS, self.concurrent_output_folder_full_paths, self.concurrent_params_paths, self.concurrent_checkpoint_paths, self.concurrent_record_hzs)):
+        #     run_i = int(re.findall(r'run_(\d+)', run_absolute_path[0])[0])
 
-            if not os.path.exists(os.path.join(consistent_configs_dir, str(run_i))):
-                os.makedirs(os.path.join(consistent_configs_dir, str(run_i)))
+        #     if not os.path.exists(os.path.join(consistent_configs_dir, str(run_i))):
+        #         os.makedirs(os.path.join(consistent_configs_dir, str(run_i)))
 
-            if os.path.exists(os.path.join(run_absolute_path[0], "finish.txt")):
-                continue
-            run_GS_render(env_name, colors, record_hz, run_absolute_path, params_path, checkpoint_path)
-        # joblib.Parallel(n_jobs=n_jobs)(joblib.delayed(run_GS_render)(color, run_absolute_path, params_path, checkpoint_path, record_hz) for color, run_absolute_path, params_path, checkpoint_path, record_hz in tqdm(zip(self.OBJECTS, self.concurrent_output_folder_full_paths, self.concurrent_params_paths, self.concurrent_checkpoint_paths, self.concurrent_record_hzs)))
+        #     if os.path.exists(os.path.join(run_absolute_path[0], "finish.txt")):
+        #         continue
+        #     run_GS_render(env_name, colors, record_hz, run_absolute_path, params_path, checkpoint_path)
+        # run_i_list = [int(re.findall(r'run_(\d+)', run_absolute_path[0])[0]) for run_absolute_path in self.concurrent_output_folder_full_paths]
+        joblib.Parallel(n_jobs=n_jobs)(joblib.delayed(run_GS_render)(env_name, colors, record_hz, run_absolute_path, params_path, checkpoint_path) for colors, run_absolute_path, params_path, checkpoint_path, record_hz in tqdm(zip(self.OBJECTS, self.concurrent_output_folder_full_paths, self.concurrent_params_paths, self.concurrent_checkpoint_paths, self.concurrent_record_hzs)))
 
     def calculate_metrics(self):
         for main_output_folder in self.main_output_folders:

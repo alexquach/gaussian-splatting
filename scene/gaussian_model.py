@@ -246,6 +246,8 @@ class GaussianModel:
         camera_dict = set_position_to_origin(camera_dict)
         gs_positions = self.convert_offsets_to_absolute(camera_dict, gs_offsets)
         UP_VECTOR = np.array(camera_dict['rotation'][1])
+        FORWARD_VECTOR = np.array(camera_dict['rotation'][2])
+        RIGHT_VECTOR = np.array(camera_dict['rotation'][0])
 
         centering_first_ball_offset = np.array([0, 0, 0])
         for i, (path, gs_position) in enumerate(zip(paths, gs_positions)):
@@ -288,6 +290,12 @@ class GaussianModel:
 
             if i == 0:
                 xyz = rotate_around_vector(xyz, UP_VECTOR, theta_environment)
+            # if i == 1:
+            #     random_rotation = np.random.uniform(0, 2 * np.pi)
+            #     xyz = rotate_around_vector(xyz, RIGHT_VECTOR, random_rotation)
+            # if i == 2:
+            #     random_rotation = np.random.uniform(0, 2 * np.pi)
+            #     xyz = rotate_around_vector(xyz, RIGHT_VECTOR, random_rotation)
             xyz = xyz + gs_position - centering_first_ball_offset
 
             print("Loaded {} points from {}".format(xyz.shape[0], path))

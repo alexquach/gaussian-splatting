@@ -119,6 +119,7 @@ def closed_loop_render_set(gaussians, pipeline, background, init_conditions, inf
         if is_lstm:
             inputs = [input, *hiddens]
         else:
+            # inputs = [input, np.array(1.0).reshape(-1, 1), *hiddens]
             inputs = [input, np.array(1.0 / record_hz * 5).reshape(-1, 1), *hiddens]
         out = single_step_model.predict(inputs)
         unnormalized_vel_cmds.append(out[0][0])
