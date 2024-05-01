@@ -16,7 +16,7 @@ def gen_tag(hz=110, pybullet=False, model_type="cfc"):
 
     pybullet = "_pybullet" if pybullet else ""
 
-    tag = f"d6_nonorm_ss2_{traj_hz}_bm_px_td_nlsp_gn_nt{pybullet}_srf_{epochs}sf_irreg2_64_hyp_{model_type}"
+    tag = f"d6_nonorm_ss2_{traj_hz}_bm_px_td_nlsp_gn_nt{pybullet}_srf_{epochs}sf_irreg2_64_hyp_{model_type}_debugmerge_lem"
     return tag
 
 # Define your configurations
@@ -30,16 +30,19 @@ def gen_custom_tag():
 tags = [config["tag"] for config in configurations]
 record_hzs = [str(config["record_hz"]) for config in configurations]
 env_name = "holodeck"
+objects = ["R", "B", "jeep", "horse", "dog", "palmtree", "watermelon", "robot", "rocket"]
 
 try: 
-    command = [
-        "python",
-        "closed_loop_render.py",
-        "--tags", *tags,
-        "--record_hzs", *record_hzs,
-        "--env_name", env_name
-    ]
+    for object_name in objects:
+        command = [
+            "python",
+            "closed_loop_render.py",
+            "--tags", *tags,
+            "--record_hzs", *record_hzs,
+            "--env_name", env_name,
+            "--obj_tag", object_name
+        ]
 
-    subprocess.run(command)
+        subprocess.run(command)
 except Exception as e:
     print(e)

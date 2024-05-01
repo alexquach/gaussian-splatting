@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import argparse
 plt.rcParams.update({'figure.facecolor':'white'})
 
+from make_sq_vids import save_folders
 from video_utils.render_folder import save_multi_layer_videos
 from env_configs import ENV_CONFIGS
 
@@ -25,16 +26,16 @@ USE_EPOCH_FILTER = True
 # which epoch checkpoints to run
 EPOCH_FILTER = []
 
-main_output_folder_format = "./generated_paths/cl_realgs_{}_mleno_{}hz_05sf_100act_doub"
+main_output_folder_format = "./generated_paths2/cl_blip2_{}hz_{}"
 main_checkpoint_folder_format = "./drone_causality/runner_models/filtered_{}"
 
-def run_GS_render(env_name, colors, record_hzs, run_absolute_paths, params_paths, checkpoint_paths):
+def run_GS_render(env_name, colors, record_hzs, run_absolute_paths, params_paths, checkpoint_paths, text_instr, selected_index):
     M_PATH = ENV_CONFIGS[env_name]["m_path"]
     S_PATH = ENV_CONFIGS[env_name]["s_path"]
     
     cmd = [
         "python",
-        "render_choice.py",
+        "fm_flight_runner_test.py",
         "-m", M_PATH,
         "-s", S_PATH,
         "--is_closed_loop",
@@ -43,6 +44,8 @@ def run_GS_render(env_name, colors, record_hzs, run_absolute_paths, params_paths
         "--params_paths", *params_paths,
         "--checkpoint_paths", *checkpoint_paths,
         "--closed_loop_save_paths", *run_absolute_paths,
+        "--text_instr", text_instr,
+        "--selected_index", str(selected_index)
     ]
     subprocess.run(cmd)
 
@@ -52,8 +55,10 @@ def main():
     parser.add_argument('--tags', nargs='*', type=str, help='Tags for the runs')
     parser.add_argument('--record_hzs', nargs='*', type=int, help='Record HZs')
     parser.add_argument('--env_name', type=str, default="holodeck", help='Environment name')
+    # TODO: Change
     parser.add_argument('--num_objects_per_run', type=int, default=2, help='Number of objects per run')
     parser.add_argument('--samples_per_model', type=int, default=10, help='Number of samples per model')
+    parser.add_argument('--obj_tag', type=str, default="rocket", help='Object tag')
     args = parser.parse_args()
 
     # Use the arguments in your script
@@ -63,27 +68,35 @@ def main():
     samples_per_model = args.samples_per_model
     tags = args.tags
     RECORD_HZS = args.record_hzs
-    MAIN_OUTPUT_FOLDERS = [main_output_folder_format.format(tag, record_hz) for tag, record_hz in zip(tags, RECORD_HZS)]
+    text_instr = f"fly to the {args.obj_tag}"
+    MAIN_OUTPUT_FOLDERS = [main_output_folder_format.format(record_hz, args.obj_tag) for tag, record_hz in zip(tags, RECORD_HZS)]
     MAIN_CHECKPOINT_FOLDERS = [main_checkpoint_folder_format.format(tag) for tag in tags]
 
     print(f"MAIN_OUTPUT_FOLDERS: {MAIN_OUTPUT_FOLDERS}")
     print(f"MAIN_CHECKPOINT_FOLDERS: {MAIN_CHECKPOINT_FOLDERS}")
 
-    evaluator = Evaluator(MAIN_OUTPUT_FOLDERS, MAIN_CHECKPOINT_FOLDERS, RECORD_HZS)
+    evaluator = Evaluator(MAIN_OUTPUT_FOLDERS, MAIN_CHECKPOINT_FOLDERS, RECORD_HZS, select_object=args.obj_tag)
 
     evaluator.config_eval_models(RUN_VAL)
     evaluator.build_concurrent_runs(num_objects_per_run)
 
-    evaluator.run_concurrent(env_name)
+    evaluator.run_concurrent(env_name, text_instr)
     save_multi_layer_videos(MAIN_OUTPUT_FOLDERS)
     try:
         evaluator.calculate_metrics()
+        main_output_folders_filename = [os.path.split(MAIN_OUTPUT_FOLDER)[-1] for MAIN_OUTPUT_FOLDER in MAIN_OUTPUT_FOLDERS]
+        save_folders(main_output_folders_filename)
     except Exception as e:
         print(e)
 
 class Evaluator():
-    def __init__(self, main_output_folders, main_checkpoint_folders, record_hzs, multi=False):
-        self.PRIMITIVE_OBJECTS = ["R", "B"]
+    def __init__(self, main_output_folders, main_checkpoint_folders, record_hzs, multi=False, select_object=None):
+        # TODO: Change to be extensible
+        # self.PRIMITIVE_OBJECTS = ["R", "B", "G", "Y", "P"]
+        # for shape analysis
+        # self.PRIMITIVE_OBJECTS = ["R", "B", "G", "Y", "P", "Rc", "Bc", "Gc", "Yc", "Pc", "jeep", "horse", "dog", "palmtree", "watermelon", "robot", "rocket"]
+        self.PRIMITIVE_OBJECTS = ["red ball", "blue ball", "jeep", "horse", "dog", "palmtree", "watermelon", "rocket"]
+        self.select_object = select_object
         self.OBJECTS = []
 
         self.main_output_folders = main_output_folders
@@ -157,8 +170,21 @@ class Evaluator():
         """
         Assign initial conditions := [object colors]
         """
-        PERMUTATIONS_COLORS = [list(perm) for perm in itertools.product(self.PRIMITIVE_OBJECTS, repeat=num_objects_per_run)]
-
+        # TODO: Change depending on task
+        # with replacement
+        # PERMUTATIONS_COLORS = [list(perm) for perm in itertools.product(self.PRIMITIVE_OBJECTS, repeat=num_objects_per_run)]
+        # without replacement:
+        # PERMUTATIONS_COLORS = [list(perm) for perm in itertools.permutations(self.PRIMITIVE_OBJECTS, num_objects_per_run)]
+        
+        # i want there to be only one cube in the scene
+        # Primitive objects are the colors and shapes, I only want one object with the string ending with the letter "c"
+        PERMUTATIONS_COLORS = [list(perm) for perm in itertools.permutations(self.PRIMITIVE_OBJECTS, num_objects_per_run)]
+        # remove any permutations that have more than one object with the string ending with the letter "c"
+        # PERMUTATIONS_COLORS = [perm for perm in PERMUTATIONS_COLORS if sum([1 for obj in perm if obj.endswith("c")]) == 1]
+        PERMUTATIONS_COLORS = [perm for perm in PERMUTATIONS_COLORS if sum([1 for obj in perm if obj.endswith(self.select_object)]) == 1]
+        random.shuffle(PERMUTATIONS_COLORS)
+        # PERMUTATIONS_COLORS = random.sample(self.PRIMITIVE_OBJECTS, num_objects_per_run)
+        index_of_select_object = [permutation.index(self.select_object) for permutation in (PERMUTATIONS_COLORS)]
         OBJECTS = []
         for _ in range(samples_per_model // len(PERMUTATIONS_COLORS)):
             OBJECTS.extend(PERMUTATIONS_COLORS)
@@ -166,13 +192,14 @@ class Evaluator():
 
         random.shuffle(OBJECTS)
         self.OBJECTS.extend(OBJECTS)
+        self.index_of_select_object = index_of_select_object
 
-    def run_concurrent(self, env_name: str, n_jobs=1):
+    def run_concurrent(self, env_name: str, text_instr: str, n_jobs=1):
         consistent_configs_dir = "./cl_consistent_configs"
         if not os.path.exists(consistent_configs_dir):
             os.makedirs(consistent_configs_dir)
         
-        for colors, run_absolute_path, params_path, checkpoint_path, record_hz in tqdm(zip(self.OBJECTS, self.concurrent_output_folder_full_paths, self.concurrent_params_paths, self.concurrent_checkpoint_paths, self.concurrent_record_hzs)):
+        for colors, run_absolute_path, params_path, checkpoint_path, record_hz, selected_index in tqdm(zip(self.OBJECTS, self.concurrent_output_folder_full_paths, self.concurrent_params_paths, self.concurrent_checkpoint_paths, self.concurrent_record_hzs, self.index_of_select_object)):
             run_i = int(re.findall(r'run_(\d+)', run_absolute_path[0])[0])
 
             if not os.path.exists(os.path.join(consistent_configs_dir, str(run_i))):
@@ -180,7 +207,7 @@ class Evaluator():
 
             if os.path.exists(os.path.join(run_absolute_path[0], "finish.txt")):
                 continue
-            run_GS_render(env_name, colors, record_hz, run_absolute_path, params_path, checkpoint_path)
+            run_GS_render(env_name, colors, record_hz, run_absolute_path, params_path, checkpoint_path, text_instr, selected_index)
         # joblib.Parallel(n_jobs=n_jobs)(joblib.delayed(run_GS_render)(color, run_absolute_path, params_path, checkpoint_path, record_hz) for color, run_absolute_path, params_path, checkpoint_path, record_hz in tqdm(zip(self.OBJECTS, self.concurrent_output_folder_full_paths, self.concurrent_params_paths, self.concurrent_checkpoint_paths, self.concurrent_record_hzs)))
 
     def calculate_metrics(self):

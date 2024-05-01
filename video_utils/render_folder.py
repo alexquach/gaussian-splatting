@@ -119,9 +119,9 @@ def save_multi_layer_videos(main_output_folders, dual_video=True):
 
 if __name__ == "__main__":
     # Get the image folder from command line arguments
-    DUAL = True
+    DUAL = False
     multi_folder = True
-    number_of_runs = 20
+    number_of_runs = 100
     directory_folder = sys.argv[1]
     video_name = "pyb_single_video.mp4" if not DUAL else "video.mp4"
     combined_video_filename="pyb_single_combined_video.mp4" if not DUAL else "combined_video.mp4"

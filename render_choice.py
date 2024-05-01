@@ -204,6 +204,7 @@ if __name__ == "__main__":
         params_paths = getattr(args, "params_paths", None)
         checkpoint_paths = getattr(args, "checkpoint_paths", None)
 
+        # TODO: Change to be an argument
         init_conditions = generate_init_conditions_closed_loop_inference(args.objects_color, PYBULLET_TO_GS_SCALING_FACTOR, closed_loop_save_paths)
         objects_color = init_conditions["objects_color"]
         objects_relative = init_conditions["objects_relative"]
