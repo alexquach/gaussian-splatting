@@ -34,15 +34,15 @@ OBJECT_MAP = {
         "urdf_path": "sphere2blue.urdf",
         "scale": 0.2
     },
-    "G": {
+    "green ball": {
         "urdf_path": "sphere2green.urdf",
         "scale": 0.2
     },
-    "Y": {
+    "yellow ball": {
         "urdf_path": "sphere2yellow.urdf",
         "scale": 0.2
     },
-    "P": {
+    "purple ball": {
         "urdf_path": "sphere2purple.urdf",
         "scale": 0.2
     },

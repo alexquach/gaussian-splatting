@@ -85,7 +85,7 @@ def closed_loop_render_set(gaussians, pipeline, background, init_conditions, inf
     # num_objects = len(sim.objects_color_target)
 
     # CLOSED_LOOP_NUM_FRAMES = int(num_objects * 240.0 * record_hz / 8.0) * 4
-    CLOSED_LOOP_NUM_FRAMES = 40
+    CLOSED_LOOP_NUM_FRAMES = 80
 
     # init stabilization
     vel_cmd = np.array([0, 0, 0, 0])
@@ -132,11 +132,10 @@ def closed_loop_render_set(gaussians, pipeline, background, init_conditions, inf
         img = transforms.ToTensor()(img).to('cuda:0')
 
         text = text_instr
-        # text = "fly to the jeep car"
+        text = "fly to the cube"
 
         # run inference
         preds = modello.forward({"image": img, "text": text})
-
         # coonvert dictionnary of 1D tensors to array of floating numbers
         # dictionnary has 4 keys: "vx", "vy", "vz", "yaw"
         out = torch.stack([preds["vx"], preds["vy"], preds["vz"], preds["yaw"]], dim=1).cpu().detach().numpy()
@@ -144,7 +143,7 @@ def closed_loop_render_set(gaussians, pipeline, background, init_conditions, inf
         unnormalized_vel_cmds.append(out[0])
         vel_cmd = out[0]  # shape: 1 x 4
 
-        # vel_cmd[0] = vel_cmd[0] * 0.5
+        # vel_cmd[0] = vel_cmd[0] * 1
 
         # Put into simulator
         updated_state, pybullet_img, finished = sim.dynamic_step_simulation(vel_cmd)

@@ -26,7 +26,7 @@ USE_EPOCH_FILTER = True
 # which epoch checkpoints to run
 EPOCH_FILTER = []
 
-main_output_folder_format = "./generated_paths2/cl_blip2_{}hz_{}"
+main_output_folder_format = "./generated_paths2/cl_blip2_2obj_50pp_mc_{}hz_{}"
 main_checkpoint_folder_format = "./drone_causality/runner_models/filtered_{}"
 
 def run_GS_render(env_name, colors, record_hzs, run_absolute_paths, params_paths, checkpoint_paths, text_instr, selected_index):
@@ -57,7 +57,7 @@ def main():
     parser.add_argument('--env_name', type=str, default="holodeck", help='Environment name')
     # TODO: Change
     parser.add_argument('--num_objects_per_run', type=int, default=2, help='Number of objects per run')
-    parser.add_argument('--samples_per_model', type=int, default=10, help='Number of samples per model')
+    parser.add_argument('--samples_per_model', type=int, default=50, help='Number of samples per model')
     parser.add_argument('--obj_tag', type=str, default="rocket", help='Object tag')
     args = parser.parse_args()
 
@@ -93,9 +93,11 @@ class Evaluator():
     def __init__(self, main_output_folders, main_checkpoint_folders, record_hzs, multi=False, select_object=None):
         # TODO: Change to be extensible
         # self.PRIMITIVE_OBJECTS = ["R", "B", "G", "Y", "P"]
+        self.PRIMITIVE_OBJECTS = ["red ball", "blue ball", "green ball", "yellow ball", "purple ball", "Rc", "Bc", "Gc", "Yc", "Pc"]
+        # self.PRIMITIVE_OBJECTS = ["red ball", "blue ball", "green ball", "yellow ball", "purple ball"]
         # for shape analysis
         # self.PRIMITIVE_OBJECTS = ["R", "B", "G", "Y", "P", "Rc", "Bc", "Gc", "Yc", "Pc", "jeep", "horse", "dog", "palmtree", "watermelon", "robot", "rocket"]
-        self.PRIMITIVE_OBJECTS = ["red ball", "blue ball", "jeep", "horse", "dog", "palmtree", "watermelon", "rocket"]
+        # self.PRIMITIVE_OBJECTS = ["red ball", "blue ball", "jeep", "horse", "dog", "palmtree", "watermelon", "rocket"]
         self.select_object = select_object
         self.OBJECTS = []
 
@@ -180,11 +182,14 @@ class Evaluator():
         # Primitive objects are the colors and shapes, I only want one object with the string ending with the letter "c"
         PERMUTATIONS_COLORS = [list(perm) for perm in itertools.permutations(self.PRIMITIVE_OBJECTS, num_objects_per_run)]
         # remove any permutations that have more than one object with the string ending with the letter "c"
-        # PERMUTATIONS_COLORS = [perm for perm in PERMUTATIONS_COLORS if sum([1 for obj in perm if obj.endswith("c")]) == 1]
-        PERMUTATIONS_COLORS = [perm for perm in PERMUTATIONS_COLORS if sum([1 for obj in perm if obj.endswith(self.select_object)]) == 1]
+        PERMUTATIONS_COLORS = [perm for perm in PERMUTATIONS_COLORS if sum([1 for obj in perm if obj.endswith("c")]) == 1]
+        # PERMUTATIONS_COLORS = [perm for perm in PERMUTATIONS_COLORS if sum([1 for obj in perm if obj.endswith(self.select_object)]) == 1]
+        if len(PERMUTATIONS_COLORS) < samples_per_model:
+            PERMUTATIONS_COLORS = PERMUTATIONS_COLORS * math.ceil(samples_per_model / len(PERMUTATIONS_COLORS))
         random.shuffle(PERMUTATIONS_COLORS)
         # PERMUTATIONS_COLORS = random.sample(self.PRIMITIVE_OBJECTS, num_objects_per_run)
-        index_of_select_object = [permutation.index(self.select_object) for permutation in (PERMUTATIONS_COLORS)]
+        # index_of_select_object = [permutation.index(self.select_object) for permutation in (PERMUTATIONS_COLORS)]
+        index_of_select_object = [permutation.index(obj) for permutation in PERMUTATIONS_COLORS for obj in permutation if obj.endswith("c")]
         OBJECTS = []
         for _ in range(samples_per_model // len(PERMUTATIONS_COLORS)):
             OBJECTS.extend(PERMUTATIONS_COLORS)

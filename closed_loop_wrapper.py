@@ -30,7 +30,9 @@ def gen_custom_tag():
 tags = [config["tag"] for config in configurations]
 record_hzs = [str(config["record_hz"]) for config in configurations]
 env_name = "holodeck"
-objects = ["R", "B", "jeep", "horse", "dog", "palmtree", "watermelon", "robot", "rocket"]
+# objects = ["red ball", "blue ball", "jeep", "horse", "dog", "palmtree", "watermelon", "rocket"]
+# objects = ["red ball", "blue ball", "green ball", "yellow ball", "purple ball"]
+objects = ["Rc"]
 
 try: 
     for object_name in objects:

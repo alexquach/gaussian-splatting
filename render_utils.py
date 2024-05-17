@@ -112,6 +112,60 @@ def generate_init_conditions_closed_loop_inference_3choice(objects_color, PYBULL
 
     return init_conditions
 
+def generate_init_conditions_closed_loop_inference_3choice_random(objects_color, PYBULLET_TO_GS_SCALING_FACTOR, closed_loop_save_paths) -> InitConditionsClosedLoopInferenceSchema:
+    """
+    Specific implementation with weighted probabilities
+
+    Task: Single Object -- N Choice
+
+    """
+    pybullet_rand_forward_1 = random.uniform(1, 2.5)
+    pybullet_rand_forward_2 = random.uniform(1, 2.5)
+    pybullet_rand_forward_3 = random.uniform(1, 2.5)
+    orthogonal_dist = 0.5
+
+    # Convert to GS
+    gs_rand_forward_1 = pybullet_rand_forward_1 * PYBULLET_TO_GS_SCALING_FACTOR
+    gs_rand_forward_2 = pybullet_rand_forward_2 * PYBULLET_TO_GS_SCALING_FACTOR
+    gs_rand_forward_3 = pybullet_rand_forward_3 * PYBULLET_TO_GS_SCALING_FACTOR
+    # gs_offsets_from_camera = [[0, 0, 0], [gs_rand_forward, -1.5*orthogonal_dist, 0], [gs_rand_forward, 1.5* orthogonal_dist, 0]] # forward, right, up
+    gs_offsets_from_camera = [[0, 0, 0], [gs_rand_forward_1, -orthogonal_dist, 0], [gs_rand_forward_2, 0, 0], [gs_rand_forward_3, orthogonal_dist, 0]] # forward, right, up
+
+    gs_offsets_xy = np.array(gs_offsets_from_camera)[1:, 0:2]
+    gs_offsets_z = np.array(gs_offsets_from_camera)[1:, 2]
+
+    max_yaw_offset = 0.1 * np.pi
+    start_heights = [0.1 + 0.5]
+    target_heights = ((0.1 + 0.5 + gs_offsets_z) / PYBULLET_TO_GS_SCALING_FACTOR).tolist()
+    theta_offset = random.uniform(0, max_yaw_offset)
+    theta_environment = random.random() * 2 * np.pi
+
+    # NOTE: y is opposite in pybullet compared to GS coordinates, so we flip it here:
+    objects_relative = gs_offsets_xy / PYBULLET_TO_GS_SCALING_FACTOR * np.array([1, -1])
+
+    init_conditions_schema = InitConditionsClosedLoopInferenceSchema()
+    init_conditions = {
+        "task_name": "closed_loop_inference",
+        "start_heights": start_heights,
+        "target_heights": target_heights,
+        "start_dist": pybullet_rand_forward_2,
+        "theta_offset": theta_offset,
+        "theta_environment": theta_environment,
+        "objects_relative": objects_relative,
+        "objects_color": objects_color,
+        "PYBULLET_TO_GS_SCALING_FACTOR": PYBULLET_TO_GS_SCALING_FACTOR,
+        "gs_objects_relative": np.array(gs_offsets_from_camera)[1:, 0:2].tolist()
+    }
+    init_conditions = init_conditions_schema.load(init_conditions)
+    for path in closed_loop_save_paths:
+        os.makedirs(path, exist_ok=True)
+        print(f"Saving init conditions to {path}")
+        init_conditions_path = os.path.join(path, "init_conditions.json")
+        with open(init_conditions_path, "w") as f:
+            json.dump(init_conditions, f)
+
+    return init_conditions
+
 # TODO: MAKRAM change here
 def generate_init_conditions_closed_loop_inference_5object(objects_color, PYBULLET_TO_GS_SCALING_FACTOR, closed_loop_save_paths) -> InitConditionsClosedLoopInferenceSchema:
     """
@@ -120,7 +174,8 @@ def generate_init_conditions_closed_loop_inference_5object(objects_color, PYBULL
     Task: Single Object -- N Choice
 
     """
-    pybullet_rand_forward = random.uniform(1.5, 2)
+    # pybullet_rand_forward = random.uniform(1.5, 2)
+    pybullet_rand_forward = random.uniform(1.8, 2)
     orthogonal_dist = 0.2
 
     # Convert to GS
