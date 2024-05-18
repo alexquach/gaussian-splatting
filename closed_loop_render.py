@@ -16,6 +16,7 @@ plt.rcParams.update({'figure.facecolor':'white'})
 from make_sq_vids import save_folders
 from video_utils.render_folder import save_multi_layer_videos
 from env_configs import ENV_CONFIGS
+from inference_configs import objects, num_obj, output_folder_format
 
 combined_video_filename = "combined_video.mp4"
 video_filename = "rand.mp4"
@@ -26,7 +27,7 @@ USE_EPOCH_FILTER = True
 # which epoch checkpoints to run
 EPOCH_FILTER = []
 
-main_output_folder_format = "./generated_paths2/cl_blip2_2obj_50pp_mc_{}hz_{}"
+main_output_folder_format = output_folder_format
 main_checkpoint_folder_format = "./drone_causality/runner_models/filtered_{}"
 
 def run_GS_render(env_name, colors, record_hzs, run_absolute_paths, params_paths, checkpoint_paths, text_instr, selected_index):
@@ -56,7 +57,7 @@ def main():
     parser.add_argument('--record_hzs', nargs='*', type=int, help='Record HZs')
     parser.add_argument('--env_name', type=str, default="holodeck", help='Environment name')
     # TODO: Change
-    parser.add_argument('--num_objects_per_run', type=int, default=2, help='Number of objects per run')
+    parser.add_argument('--num_objects_per_run', type=int, default=num_obj, help='Number of objects per run')
     parser.add_argument('--samples_per_model', type=int, default=50, help='Number of samples per model')
     parser.add_argument('--obj_tag', type=str, default="rocket", help='Object tag')
     args = parser.parse_args()
@@ -92,12 +93,7 @@ def main():
 class Evaluator():
     def __init__(self, main_output_folders, main_checkpoint_folders, record_hzs, multi=False, select_object=None):
         # TODO: Change to be extensible
-        # self.PRIMITIVE_OBJECTS = ["R", "B", "G", "Y", "P"]
-        self.PRIMITIVE_OBJECTS = ["red ball", "blue ball", "green ball", "yellow ball", "purple ball", "Rc", "Bc", "Gc", "Yc", "Pc"]
-        # self.PRIMITIVE_OBJECTS = ["red ball", "blue ball", "green ball", "yellow ball", "purple ball"]
-        # for shape analysis
-        # self.PRIMITIVE_OBJECTS = ["R", "B", "G", "Y", "P", "Rc", "Bc", "Gc", "Yc", "Pc", "jeep", "horse", "dog", "palmtree", "watermelon", "robot", "rocket"]
-        # self.PRIMITIVE_OBJECTS = ["red ball", "blue ball", "jeep", "horse", "dog", "palmtree", "watermelon", "rocket"]
+        self.PRIMITIVE_OBJECTS = objects
         self.select_object = select_object
         self.OBJECTS = []
 
@@ -178,18 +174,19 @@ class Evaluator():
         # without replacement:
         # PERMUTATIONS_COLORS = [list(perm) for perm in itertools.permutations(self.PRIMITIVE_OBJECTS, num_objects_per_run)]
         
-        # i want there to be only one cube in the scene
-        # Primitive objects are the colors and shapes, I only want one object with the string ending with the letter "c"
         PERMUTATIONS_COLORS = [list(perm) for perm in itertools.permutations(self.PRIMITIVE_OBJECTS, num_objects_per_run)]
+        
         # remove any permutations that have more than one object with the string ending with the letter "c"
-        PERMUTATIONS_COLORS = [perm for perm in PERMUTATIONS_COLORS if sum([1 for obj in perm if obj.endswith("c")]) == 1]
-        # PERMUTATIONS_COLORS = [perm for perm in PERMUTATIONS_COLORS if sum([1 for obj in perm if obj.endswith(self.select_object)]) == 1]
+        # PERMUTATIONS_COLORS = [perm for perm in PERMUTATIONS_COLORS if sum([1 for obj in perm if obj.endswith("c")]) == 1]
+        PERMUTATIONS_COLORS = [perm for perm in PERMUTATIONS_COLORS if sum([1 for obj in perm if obj.endswith(self.select_object)]) == 1]
+
         if len(PERMUTATIONS_COLORS) < samples_per_model:
             PERMUTATIONS_COLORS = PERMUTATIONS_COLORS * math.ceil(samples_per_model / len(PERMUTATIONS_COLORS))
         random.shuffle(PERMUTATIONS_COLORS)
-        # PERMUTATIONS_COLORS = random.sample(self.PRIMITIVE_OBJECTS, num_objects_per_run)
+        
         # index_of_select_object = [permutation.index(self.select_object) for permutation in (PERMUTATIONS_COLORS)]
-        index_of_select_object = [permutation.index(obj) for permutation in PERMUTATIONS_COLORS for obj in permutation if obj.endswith("c")]
+        # index_of_select_object = [permutation.index(obj) for permutation in PERMUTATIONS_COLORS for obj in permutation if obj.endswith("c")]
+        index_of_select_object = [0 for _ in range(len(PERMUTATIONS_COLORS))]
         OBJECTS = []
         for _ in range(samples_per_model // len(PERMUTATIONS_COLORS)):
             OBJECTS.extend(PERMUTATIONS_COLORS)

@@ -28,7 +28,7 @@ if cfg.ckpt_path:
     model.load_state_dict(ckpt["state_dict"])
 
 # make a copy of the model
-modello = model
+modello = model.to(device)
 
 # with open("model_details.txt", "w") as file:
 #     file.write(str(modello))

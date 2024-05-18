@@ -132,7 +132,6 @@ def closed_loop_render_set(gaussians, pipeline, background, init_conditions, inf
         img = transforms.ToTensor()(img).to('cuda:0')
 
         text = text_instr
-        text = "fly to the cube"
 
         # run inference
         preds = modello.forward({"image": img, "text": text})
@@ -166,6 +165,8 @@ def closed_loop_render_set(gaussians, pipeline, background, init_conditions, inf
         view = camera_from_dict(start_dict)
 
     print("instruction_text: ", text)
+    with open(os.path.join(render_path, "instruction_text.txt"), "w") as file:
+        file.write(text)
     sim.export_plots()
     np.savetxt(os.path.join(render_path, "vel_cmds_unnorm.csv"), np.array(unnormalized_vel_cmds), delimiter=",")
 
@@ -242,7 +243,7 @@ if __name__ == "__main__":
         params_paths = getattr(args, "params_paths", None)
         checkpoint_paths = getattr(args, "checkpoint_paths", None)
 
-        init_conditions = generate_init_conditions_closed_loop_inference_3choice(args.objects_color,
+        init_conditions = generate_init_conditions_closed_loop_inference_2choice(args.objects_color,
                                                                          PYBULLET_TO_GS_SCALING_FACTOR,
                                                                          closed_loop_save_paths)
         objects_color = init_conditions["objects_color"]

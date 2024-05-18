@@ -1,4 +1,5 @@
 import subprocess
+from inference_configs import targets
 
 def gen_tag(hz=110, pybullet=False, model_type="cfc"):
     """
@@ -30,12 +31,9 @@ def gen_custom_tag():
 tags = [config["tag"] for config in configurations]
 record_hzs = [str(config["record_hz"]) for config in configurations]
 env_name = "holodeck"
-# objects = ["red ball", "blue ball", "jeep", "horse", "dog", "palmtree", "watermelon", "rocket"]
-# objects = ["red ball", "blue ball", "green ball", "yellow ball", "purple ball"]
-objects = ["Rc"]
 
 try: 
-    for object_name in objects:
+    for object_name in targets:
         command = [
             "python",
             "closed_loop_render.py",

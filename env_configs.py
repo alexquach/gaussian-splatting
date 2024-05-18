@@ -46,23 +46,23 @@ OBJECT_MAP = {
         "urdf_path": "sphere2purple.urdf",
         "scale": 0.2
     },
-    "Rc": {
+    "red cube": {
         "urdf_path": "cube2red.urdf",
         "scale": 0.2
     },
-    "Bc": {
+    "blue cube": {
         "urdf_path": "cube2blue.urdf",
         "scale": 0.2
     },
-    "Yc": {
+    "yellow cube": {
         "urdf_path": "cube2yellow.urdf",
         "scale": 0.2
     },
-    "Pc": {
+    "purple cube": {
         "urdf_path": "cube2purple.urdf",
         "scale": 0.2
     },
-    "Gc": {
+    "green cube": {
         "urdf_path": "cube2green.urdf",
         "scale": 0.2
     },

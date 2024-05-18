@@ -62,7 +62,7 @@ def generate_init_conditions_closed_loop_inference(objects_color, PYBULLET_TO_GS
 
     return init_conditions
 
-def generate_init_conditions_closed_loop_inference_3choice(objects_color, PYBULLET_TO_GS_SCALING_FACTOR, closed_loop_save_paths) -> InitConditionsClosedLoopInferenceSchema:
+def generate_init_conditions_closed_loop_inference_2choice(objects_color, PYBULLET_TO_GS_SCALING_FACTOR, closed_loop_save_paths) -> InitConditionsClosedLoopInferenceSchema:
     """
     Specific implementation with weighted probabilities
 
