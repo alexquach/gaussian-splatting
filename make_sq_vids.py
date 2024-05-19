@@ -59,7 +59,8 @@ def save_folders(folders):
                     # readable size for 224x224 images
                     font = cv2.FONT_HERSHEY_SIMPLEX
                     # smaller text for 224x224 images
-                    cv2.putText(img, f"{string}{fold}", (10, 18), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+                    # cv2.putText(img, f"{string}{fold}", (10, 18), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+                    cv2.putText(img, f"{fold}", (10, 18), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
                     # write the image to the video
                     out.write(img)
 

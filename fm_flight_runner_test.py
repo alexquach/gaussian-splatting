@@ -46,6 +46,7 @@ from torchvision import transforms
 pybullet_inference = True
 
 from fm_flight_utils import modello
+from inference_configs import generate_init_conditions
 
 
 def render_set(model_path, name, iteration, views, gaussians, pipeline, background, custom_camera_path=None):
@@ -243,9 +244,9 @@ if __name__ == "__main__":
         params_paths = getattr(args, "params_paths", None)
         checkpoint_paths = getattr(args, "checkpoint_paths", None)
 
-        init_conditions = generate_init_conditions_closed_loop_inference_2choice(args.objects_color,
-                                                                         PYBULLET_TO_GS_SCALING_FACTOR,
-                                                                         closed_loop_save_paths)
+        init_conditions = generate_init_conditions(args.objects_color,
+                                                    PYBULLET_TO_GS_SCALING_FACTOR,
+                                                    closed_loop_save_paths)
         objects_color = init_conditions["objects_color"]
         objects_relative = init_conditions["objects_relative"]
         theta_environment = init_conditions["theta_environment"]

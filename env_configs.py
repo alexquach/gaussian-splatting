@@ -66,6 +66,35 @@ OBJECT_MAP = {
         "urdf_path": "cube2green.urdf",
         "scale": 0.2
     },
+    "red donut": {
+        "urdf_path": "torus_red.urdf",
+        "scale": 0.3
+    },
+    "red pyramid": {
+        "urdf_path": "pyramid_red.urdf",
+        "orientation": [np.pi / 2, 0, 0],
+        "scale": 0.2
+    },
+    "blue pyramid": {
+        "urdf_path": "pyramid_blue.urdf",
+        "orientation": [np.pi / 2, 0, 0],
+        "scale": 0.2
+    },
+    "yellow pyramid": {
+        "urdf_path": "pyramid_yellow.urdf",
+        "orientation": [np.pi / 2, 0, 0],
+        "scale": 0.2
+    },
+    "purple pyramid": {
+        "urdf_path": "pyramid_purple.urdf",
+        "orientation": [np.pi / 2, 0, 0],
+        "scale": 0.2
+    },
+    "green pyramid": {
+        "urdf_path": "pyramid_green.urdf",
+        "orientation": [np.pi / 2, 0, 0],
+        "scale": 0.2
+    },
     "jeep": {
         "urdf_path": "jeep.urdf",
         "scale": 0.2 / 1.5,
