@@ -23,7 +23,11 @@ def gen_tag(hz=110, pybullet=False, model_type="cfc"):
 configurations = [
     # {"tag": gen_tag(110, False, "cfc"), "record_hz": 3},
     # {"tag": gen_tag(110, False, "ltc"), "record_hz": 3},
-    {"tag": gen_tag(110, False, "lem1_loghyper5"), "record_hz": 3},
+    {"tag": gen_tag(110, True, "corl_1"), "record_hz": 3},
+    {"tag": gen_tag(110, True, "corl_2"), "record_hz": 3},
+    {"tag": gen_tag(110, True, "corl_3"), "record_hz": 3},
+    {"tag": gen_tag(110, True, "corl_4"), "record_hz": 3},
+    {"tag": gen_tag(110, True, "corl_5"), "record_hz": 3},
     # {"tag": gen_tag(110, False, "lem4"), "record_hz": 3},
     # {"tag": gen_tag(3, False, "lstm"), "record_hz": 3},
 ]

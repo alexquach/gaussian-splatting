@@ -167,7 +167,7 @@ class Evaluator():
         random.shuffle(OBJECTS)
         self.OBJECTS.extend(OBJECTS)
 
-    def run_concurrent(self, env_name: str, n_jobs=3):
+    def run_concurrent(self, env_name: str, n_jobs=2):
         # consistent_configs_dir = "./cl_consistent_configs"
         # if not os.path.exists(consistent_configs_dir):
         #     os.makedirs(consistent_configs_dir)
