@@ -35,11 +35,7 @@ from camera_custom_utils import move_forward, rotate_camera_dict_about_up_direct
 from render_utils import *
 from env_configs import COLOR_MAP, ENV_CONFIGS
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(SCRIPT_DIR, ".."))
-sys.path.append(os.path.join(SCRIPT_DIR, "..", "gym-pybullet-drones"))
-sys.path.append(os.path.join(SCRIPT_DIR, "..", "gym-pybullet-drones", "gym_pybullet_drones", "examples"))
-from gym_pybullet_drones.examples.simulator_eval import EvalSimulator
+from pybullet_env.simulator.simulator_eval import EvalSimulator
 
 
 pybullet_inference = False

@@ -29,14 +29,10 @@ from utils.camera_custom_utils import move_forward, rotate_camera_dict_about_up_
 from render_utils import *
 from env_configs import COLOR_MAP, ENV_CONFIGS
 from drone_causality.utils.model_utils import get_params_from_json, load_model_from_weights, generate_hidden_list
-from gym_pybullet_drones.examples.schemas import parse_init_conditions
-from gym_pybullet_drones.examples.simulator_utils import get_x_y_z_yaw_relative_to_base_env
+from pybullet_env.path_templates.schemas import parse_init_conditions
+from pybullet_env.simulator.simulator_utils import get_x_y_z_yaw_relative_to_base_env
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(SCRIPT_DIR, ".."))
-sys.path.append(os.path.join(SCRIPT_DIR, "..", "gym-pybullet-drones"))
-sys.path.append(os.path.join(SCRIPT_DIR, "..", "gym-pybullet-drones", "gym_pybullet_drones", "examples"))
-from gym_pybullet_drones.examples.simulator_eval import EvalSimulator
+from pybullet_env.simulator.simulator_eval import EvalSimulator
 
 
 pybullet_inference = False

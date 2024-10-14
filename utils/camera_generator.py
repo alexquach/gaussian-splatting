@@ -10,7 +10,7 @@ from utils.camera_custom_utils import (get_start_camera,
                                  rotate_camera_dict_about_up_direction, 
                                  move_forward, move_sideways, set_position_to_origin)
 from env_configs import ENV_CONFIGS
-from gym_pybullet_drones.examples.schemas import parse_init_conditions
+from path_templates.schemas import parse_init_conditions
 
 MAX_FRAMES = 200
 CRITICAL_DIST = 1.5

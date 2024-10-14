@@ -8,7 +8,7 @@ import json
 
 from drone_causality.keras_models import IMAGE_SHAPE
 from drone_causality.preprocess.process_data_util import resize_and_crop
-from gym_pybullet_drones.examples.schemas import InitConditionsClosedLoopInferenceSchema
+from path_templates.schemas import InitConditionsClosedLoopInferenceSchema
 
 
 def generate_init_conditions_closed_loop_inference(objects_color, PYBULLET_TO_GS_SCALING_FACTOR, closed_loop_save_paths) -> InitConditionsClosedLoopInferenceSchema:
