@@ -26,7 +26,7 @@ USE_EPOCH_FILTER = True
 EPOCH_FILTER = []
 
 main_output_folder_format = "./generated_paths/cl_realgs_{}_mleno_{}hz_05sf_100act_doub"
-main_checkpoint_folder_format = "./drone_causality/runner_models/filtered_{}"
+main_checkpoint_folder_format = "../drone_causality/runner_models/filtered_{}"
 
 def run_GS_render(env_name, colors, record_hzs, run_absolute_paths, params_paths, checkpoint_paths):
     M_PATH = ENV_CONFIGS[env_name]["m_path"]
