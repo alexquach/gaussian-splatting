@@ -7,9 +7,3 @@
 [submodule "SIBR_viewers"]
 	path = SIBR_viewers
 	url = https://gitlab.inria.fr/sibr/sibr_core.git
-[submodule "drone_causality"]
-	path = drone_causality
-	url = https://github.com/makramchahine/drone_causality.git
-[submodule "gym-pybullet-drones"]
-	path = gym-pybullet-drones
-	url = https://github.com/makramchahine/gym-pybullet-drones.git
